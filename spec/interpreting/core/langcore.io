@@ -1,11 +1,3 @@
-## Below are some tests of the very basic predefined data in a program
-## "Everything" is tested except the func-function
-## Test for the func-function can be found in a separate file
-
-# Testa även:
-# * när man försöker använda en property som inte finns
-
-
 # Check which methods the lobby contains
 println(slots()) #= [ Array, False, false, func, Function, if, Message, new, Nil, nil, Number, Object, println, protos, String, True, true, while ]
 println(slots protos) #= Array
@@ -223,6 +215,4 @@ while(otherNum >(0),
 )
 #= step2
 #= step2
-
-
 
