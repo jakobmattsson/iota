@@ -72,7 +72,7 @@ namespace('spec', function() {
           console.log("Test error:", err);
           return;
         }
-        list.forEach(function(file) {
+        list.map(function(file) {
           var errors = 0;
           var tokens = iota.tokenize(file.content);
           var messages = iota.parse(tokens);
@@ -89,31 +89,42 @@ namespace('spec', function() {
             return comments[0];
           });
 
-          iota.evaluate(messages, {
-            println: function(x, line) {
-              var next = expected.shift();
-              if (x != next) {
-                errors++;
-                console.log("Line " + line + "; expected:");
-                console.log("  ", next);
-                console.log("Got:");
-                console.log("  ", x);
-                console.log();
-                console.log();
-              } else {
-                console.log("Line " + line + " OK");
+          try {
+            console.log("Executing " + file.filename + "...");
+            iota.evaluate(messages, {
+              println: function(x, line) {
+                var next = expected.shift();
+                if (x != next) {
+                  errors++;
+                  console.log("Line " + line + "; expected:");
+                  console.log("  ", next);
+                  console.log("Got:");
+                  console.log("  ", x);
+                  console.log();
+                  console.log();
+                } else {
+                  console.log("Line " + line + " OK");
+                }
               }
-            }
-          });
-          if (expected.length > 0) {
-            console.log("Never got the following:");
-            expected.forEach(function(x) {
-              errors++;
-              console.log("  " + x);
             });
-            console.log();
+            if (expected.length > 0) {
+              console.log("Never got the following:");
+              expected.forEach(function(x) {
+                errors++;
+                console.log("  " + x);
+              });
+              console.log();
+            }
+          } catch (ex) {
+            console.log("Exception raised!");
+            errors++;
           }
-          console.log("Total errors in " + file.filename + ": " + errors)
+          return {
+            filename: file.filename,
+            errors: errors
+          };
+        }).forEach(function(r) {
+          console.log("Total errors in " + r.filename + ": " + r.errors);
         });
       });
     });
