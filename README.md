@@ -64,56 +64,56 @@ It also contains **protos** ... explain ...
 
 ### Object
 
-* clone:   Function that takes no arguments and returns a new object with its protos slot set to the target of the clone invokation.
-* delete:  Function that takes a single string as argument. Removes the slot by that name, if such a slot exists. Returns the object itself.
-* same:    Function that takes a single object as argument. Returns "True clone" if the argument and the target are the SAME object. Otherwise it returns "False clone"
-* send:    Function that takes a single message as argument. Passes that message to the target object and returns the result. If the target object is unable to respond to the message, it is instead passed as an argument to the function "missing" of the target, if the target has such a method. If not, "Nil clone" is returned.
-* slot:    Function that takes either a single string OR a string and an object as arguments. If given a single string, it returns the slot by that name (without calling it, if it is a function). If there is no slot by that name, it returns "Nil clone". If given a string and an object, it sets the slot with the name of the string to the value of the object. Then it returns the target object itself.
-* slots:   Function that takes no arguments and returns an array of all the names of the slots on this object.
-* tos:     Function that takes no arguments and returns a string containing the names of all the slots in the target object.
+* **clone**:   Function that takes no arguments and returns a new object with its protos slot set to the target of the clone invokation.
+* **delete**:  Function that takes a single string as argument. Removes the slot by that name, if such a slot exists. Returns the object itself.
+* **same**:    Function that takes a single object as argument. Returns "True clone" if the argument and the target are the SAME object. Otherwise it returns "False clone"
+* **send**:    Function that takes a single message as argument. Passes that message to the target object and returns the result. If the target object is unable to respond to the message, it is instead passed as an argument to the function "missing" of the target, if the target has such a method. If not, "Nil clone" is returned.
+* **slot**:    Function that takes either a single string OR a string and an object as arguments. If given a single string, it returns the slot by that name (without calling it, if it is a function). If there is no slot by that name, it returns "Nil clone". If given a string and an object, it sets the slot with the name of the string to the value of the object. Then it returns the target object itself.
+* **slots**:   Function that takes no arguments and returns an array of all the names of the slots on this object.
+* **tos**:     Function that takes no arguments and returns a string containing the names of all the slots in the target object.
 
 ### Number
 
-* *:      Function taking a single number as argument. Multiplies the argument with the target and returns a new number respresenting the resulting value. There are no overflows.
-* +:      Function taking a single number as argument. Adds the argument with the target and returns a new number respresenting the resulting value. There are no overflows.
-* -:      Function taking a single number as argument. Subtracts the argument from the target and returns a new number respresenting the resulting value. There are no overflows.
-* /:      Function taking a single number as argument. Divides the target with the arguments and returns a new number respresenting the resulting value. There are no overflows. If the argument is 0, *Nil clone* is returned.
-* <:      Function taking a single number as argument. Returns *True clone* if the target number is smaller than the argument. Returns *False clone* otherwise.
-* >:      Function taking a single number as argument. Returns *True clone* if the target number is larger than the argument. Returns *False clone* otherwise.
-* protos: An array containing *Object* as it single element.
-* tos:    Function taking no arguments and returning a string representing the target number.
+* __*__:      Function taking a single number as argument. Multiplies the argument with the target and returns a new number respresenting the resulting value. There are no overflows.
+* **+**:      Function taking a single number as argument. Adds the argument with the target and returns a new number respresenting the resulting value. There are no overflows.
+* **-**:      Function taking a single number as argument. Subtracts the argument from the target and returns a new number respresenting the resulting value. There are no overflows.
+* **/**:      Function taking a single number as argument. Divides the target with the arguments and returns a new number respresenting the resulting value. There are no overflows. If the argument is 0, *Nil clone* is returned.
+* **<**:      Function taking a single number as argument. Returns *True clone* if the target number is smaller than the argument. Returns *False clone* otherwise.
+* **>**:      Function taking a single number as argument. Returns *True clone* if the target number is larger than the argument. Returns *False clone* otherwise.
+* **protos**: An array containing *Object* as it single element.
+* **tos**:    Function taking no arguments and returning a string representing the target number.
 
 ### String
 
-* fromArray: Function that creates a string from an array of numbers
-* parse:     Function that parses a string to an array of messages.
-* protos:
-* toArray:   Function that returns an array of numbers from the string
-* tos:
+* **fromArray**: Function that creates a string from an array of numbers
+* **parse**:     Function that parses a string to an array of messages.
+* **protos**:
+* **toArray**:   Function that returns an array of numbers from the string
+* **tos**:
 
 ### Array
 
-* at:     Function that takes a number as its argument and return the array index at that index, starting from zero. Returns "Nil clone" if the argument is out of range.
-* clone:
-* length: Function that return the number of items in the array.
-* protos:
-* push:
-* tos:
+* **at**:     Function that takes a number as its argument and return the array index at that index, starting from zero. Returns "Nil clone" if the argument is out of range.
+* **clone**:
+* **length**: Function that return the number of items in the array.
+* **protos**:
+* **push**:
+* **tos**:
 
 ### Function
 
-* protos:
-* tos:
+* **protos**:
+* **tos**:
 
 ### Message
 
-* name:      String representing the name of the message. "Nil clone" if the message is a literal value or a comment. The message "\n" is reserved for actual newlines.
-* value:     A string or a number if the message is a literal value. "Nil clone" if it is a symbolic message or a comment.
-* comment:   The comment string, if this message is a comment. "Nil clone" if it is a symbolic message or a literal value.
-* arguments: Array of arguments belonging to the message. Every element is an array of messages.
-* line:      Number representing the line of the source file where the message started.
-* column:    Number representing the column of the source file where the message started.
-* file:      String representing the name of the source file where the message was defined.
+* **name**:      String representing the name of the message. "Nil clone" if the message is a literal value or a comment. The message "\n" is reserved for actual newlines.
+* **value**:     A string or a number if the message is a literal value. "Nil clone" if it is a symbolic message or a comment.
+* **comment**:   The comment string, if this message is a comment. "Nil clone" if it is a symbolic message or a literal value.
+* **arguments**: Array of arguments belonging to the message. Every element is an array of messages.
+* **line**:      Number representing the line of the source file where the message started.
+* **column**:    Number representing the column of the source file where the message started.
+* **file**:      String representing the name of the source file where the message was defined.
 
 
 Notes
@@ -128,14 +128,14 @@ Notes
 
 ToDo
 ----
-Implement the parse-method (and proper message objects)
-Tests for accessing undefined slots
-Method missing
-User-defined functions
-Tail recursion
-Operators
-JavaScript interoperability
-Exceptions (maybe)
+1. Implement the parse-method (and proper message objects)
+2. Tests for accessing undefined slots
+3. Method missing
+4. User-defined functions
+5. Tail recursion
+6. Operators
+7. JavaScript interoperability
+8. Exceptions (maybe)
 
 
 License
