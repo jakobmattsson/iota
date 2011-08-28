@@ -1,6 +1,6 @@
 [[{
     "name": null,
-    "value": "123",
+    "value": 123,
     "comment": null,
     "arguments": [],
     "line": 1,
@@ -12,7 +12,7 @@
     "comment": null,
     "arguments": [[[{
         "name": null,
-        "value": "45",
+        "value": 45,
         "comment": null,
         "arguments": [],
         "line": 1,
@@ -41,14 +41,14 @@
     "comment": null,
     "arguments": [[[{
         "name": null,
-        "value": "1",
+        "value": 1,
         "comment": null,
         "arguments": [],
         "line": 3,
         "column": 3
     }]], [[{
         "name": null,
-        "value": "2",
+        "value": 2,
         "comment": null,
         "arguments": [],
         "line": 3,
@@ -60,7 +60,7 @@
         "comment": null,
         "arguments": [[[{
             "name": null,
-            "value": "3",
+            "value": 3,
             "comment": null,
             "arguments": [],
             "line": 3,

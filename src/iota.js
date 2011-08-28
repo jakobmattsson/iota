@@ -126,11 +126,13 @@ var parse = function(tokens) {
         args.push(currArg);
         currArg = [];
       } else if (tokens[i].type == "string" || tokens[i].type == "number") {
-        currLine.push({ name: null, value: tokens[i].lexeme, comment: null, arguments: [], line: tokens[i].line, column: tokens[i].col });
+        currLine.push({ name: null, value: tokens[i].type == "number" ? parseInt(tokens[i].lexeme, 10) : tokens[i].lexeme, comment: null, arguments: [], line: tokens[i].line, column: tokens[i].col });
       } else if (tokens[i].type == "comment") {
         currLine.push({ name: null, value: null, comment: tokens[i].lexeme, arguments: [], line: tokens[i].line, column: tokens[i].col });
       } else {
         var a = formArguments(tokens.slice(i+1));
+        
+        
         currLine.push({ name: tokens[i].lexeme, value: null, comment: null, arguments: a.arguments || [], line: tokens[i].line, column: tokens[i].col });
         i += a.consumed;
       }
@@ -195,9 +197,9 @@ var interpret = function(messages, evalConfig) {
       context = lobby;
     }
 
-    messages.forEach(function(line) {
+    messages.value.forEach(function(line) {
       target = context; // detta är inte nödvändigtvis lobby, bara när man evaluerar i översta scope
-      line.forEach(function(msg) {
+      line.value.forEach(function(msg) {
         target = realSend(target, msg, target);
       });
     });
@@ -206,15 +208,11 @@ var interpret = function(messages, evalConfig) {
   }
   var realSend = function(target, msg, context) {
 
-    if (msg.value !== null) {
-      if (msg.value.match(/^\d+$/)) {
-        return iotaNumberCreate(parseInt(msg.value, 10));
-      } else {
-        return iotaStringCreate(msg.value);
-      }
+    if (!isFalsy(msg.keys.value)) {
+      return msg.value;
     }
 
-    if (msg.comment) {
+    if (!isFalsy(msg.keys.comment)) {
       return target;
     }
 
@@ -231,22 +229,20 @@ var interpret = function(messages, evalConfig) {
       }
     };
 
-    if (target.keys[msg.name]) {
-      var t = target.keys[msg.name];
-
-      return invoke(t, context, msg.arguments);
-
+    console.log(msg.keys.name.type === "string");
+    if (target.keys[msg.keys.name.value]) {
+      var t = target.keys[msg.keys.name.value];
+      return invoke(t, context, msg.keys.arguments.value);
     } else {
       var result = null;
-      //console.log(target);
       if (typeof target.keys.protos === "undefined") {
         throw "NO PROTOS";
       } else if (target.keys.protos.type == "array") {
-        var matchedAny = traverse(target.keys.protos.value, msg.name, function(item) {
-          result = invoke(item.keys[msg.name], context, msg.arguments);
+        var matchedAny = traverse(target.keys.protos.value, msg.keys.name.value, function(item) {
+          result = invoke(item.keys[msg.keys.name.value], context, msg.keys.arguments.value);
         });
         if (!matchedAny) {
-          console.log("HERE:", msg.name);
+          console.log("HERE:", msg.keys.name);
           throw "No matches!"
         }
       } else {
@@ -359,7 +355,9 @@ var interpret = function(messages, evalConfig) {
       return iotaBooleanCreate(this == evalExp(x));
     }),
     "send": iotaFunctionCreate(function(msg) {
-      throw "not implemented";
+      var evaledMsg = evalExp(msg);
+      console.log(evaledMsg);
+      return evalExp([evaledMsg], this);
     }),
     "slot": iotaFunctionCreate(function(name, value) {
       if (arguments.length == 1) {
@@ -397,6 +395,10 @@ var interpret = function(messages, evalConfig) {
       return iotaArrayCreate([], this);
     }),
     "at": iotaFunctionCreate(function(i) {
+      console.log("Array.at", i);
+      console.log(i.value[0].value[0].keys.value)
+      console.log(evalExp(i));
+      
       var x = evalToNumber(i, "The argument to Array.at must be a number");
       var result = this.value[x.value];
       return result;
@@ -415,7 +417,7 @@ var interpret = function(messages, evalConfig) {
 
       var str = "[ ";
       str += this.value.map(function(x, i) {
-        var res = realSend(x, { name: 'tos', arguments: [], line: -1, column: -1, value: null, comment: null }, x);
+        var res = realSend(x, toIotaFormat({ name: 'tos', arguments: [], line: -1, column: -1, value: null, comment: null }), x);
         return res.value;
       }).join(", ");
       str += " ]";
@@ -456,8 +458,9 @@ var interpret = function(messages, evalConfig) {
       }),
       "println": iotaFunctionCreate(function(x) {
         var e = evalExp(x);
-        var after = realSend(e, { name: 'tos', arguments: [], line: -1, column: -1, value: null, comment: null }, e);
-        evalConfig.println(after.value, x[0][0].line); // haxx in order to avoid matching this line when searching for console log's
+        var after = realSend(e, toIotaFormat({ name: 'tos', arguments: [], line: -1, column: -1, value: null, comment: null }), e);
+        var line = x.value.map(function(e) { return e.value; })[0][0].keys.line.value;
+        evalConfig.println(after.value, line); // haxx in order to avoid matching this line when searching for console log's
       }),
       "protos": iotaArrayCreate([iotaObject]),
       "Object": iotaObject,
@@ -661,7 +664,8 @@ var interpret = function(messages, evalConfig) {
       console.log(str);
     };
   }
-  evalExp(messages);
+  var iotaMessages = toIotaFormat(messages);
+  evalExp(iotaMessages);
 };
 
 if (exports) {

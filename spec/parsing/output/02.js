@@ -11,7 +11,7 @@
     "comment": null,
     "arguments": [[[{
         "name": null,
-        "value": "45",
+        "value": 45,
         "comment": null,
         "arguments": [],
         "line": 1,
