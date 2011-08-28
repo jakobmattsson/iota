@@ -1,3 +1,4 @@
+
 # Check which methods the lobby contains
 println(slots()) #= [ Array, False, false, func, Function, if, Message, new, Nil, nil, Number, Object, println, protos, String, True, true, while ]
 println(slots protos) #= Array
@@ -215,4 +216,7 @@ while(otherNum >(0),
 )
 #= step2
 #= step2
+
+println("hello" toArray) #= [ 104, 101, 108, 108, 111 ]
+println(String fromArray("hello" toArray)) #= hello
 

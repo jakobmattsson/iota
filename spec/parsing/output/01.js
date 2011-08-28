@@ -72,6 +72,7 @@
         "name": "x",
         "value": null,
         "comment": null,
+        "arguments": [],
         "line": 4,
         "column": 3
     },
@@ -79,6 +80,7 @@
         "name": "and",
         "value": null,
         "comment": null,
+        "arguments": [],
         "line": 4,
         "column": 5
     },
@@ -86,12 +88,14 @@
         "name": "y",
         "value": null,
         "comment": null,
+        "arguments": [],
         "line": 4,
         "column": 9
     }], [{
         "name": "z",
         "value": null,
         "comment": null,
+        "arguments": [],
         "line": 5,
         "column": 3
     },
@@ -99,6 +103,7 @@
         "name": "for",
         "value": null,
         "comment": null,
+        "arguments": [],
         "line": 5,
         "column": 5
     },
@@ -106,6 +111,7 @@
         "name": "zorro",
         "value": null,
         "comment": null,
+        "arguments": [],
         "line": 5,
         "column": 9
     }]]],

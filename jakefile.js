@@ -44,6 +44,11 @@ namespace('spec', function() {
           } else {
             failures++;
             console.log(item.id, item.name, "FAILED");
+            console.log("Expected:");
+            console.log("  ", specData);
+            console.log("Got:");
+            console.log("  ", msgs);
+            console.log();
           }
         });
         if (failures > 0) {
@@ -91,7 +96,7 @@ namespace('spec', function() {
 
           try {
             console.log("Executing " + file.filename + "...");
-            iota.evaluate(messages, {
+            iota.interpret(messages, {
               println: function(x, line) {
                 var next = expected.shift();
                 if (x != next) {
@@ -117,6 +122,7 @@ namespace('spec', function() {
             }
           } catch (ex) {
             console.log("Exception raised!");
+            console.log(ex);
             errors++;
           }
           return {

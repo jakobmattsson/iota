@@ -4,8 +4,7 @@ iota
 What is it?
 -----------
 
-A cool language
-
+A small yet very powerful programming language.
 
 Guide
 -----
@@ -122,7 +121,7 @@ Notes
 * The paraenthesis are optional when invoking a function. Simply stating the name of it will invoke it.
 * Use slot("name_of_function") to get a reference to a function without invoking it.
 * The protos-slot can be a single object or an array. If it is a single object, that single object is the prototype. If it is an array, every object in that array serve as prototypes. (The reason for this is that cloning an array would cause an infinite loop if the clone required a new array for the protos slot).
-* An object is considered falsy if Nil or False is can be found among its ancestors (note: note just its parents)
+* An object is considered falsy if Nil or False is can be found among its ancestors (note: literally ancestors; not just its parents)
 * All objects that are not falsy are considered truthy
 
 
