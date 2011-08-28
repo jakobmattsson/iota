@@ -27,7 +27,7 @@ Every message has an implicit or explicit *target* - an object that it is being 
 
 ### Objects
 
-Objects are in-memory representations of the current state of a program. Some exist before the execution of code begins and some are created (or changed or destroyed) as messages are being passed. Even messages themselves are objects that can be accessed while an iota program is executed.
+Objects are representations of the current state of a program. Some exist before the execution of code begins and some are created (or changed or destroyed) as messages are being passed. Even messages themselves are objects that can be accessed while an iota program is executed.
 
 ### Functions
 
@@ -46,21 +46,96 @@ The global object is the target for the first message in every program. It conta
 * **false**: Takes no arguments. When invoked, clones False and returns the result. [Note: should be removed from the core]
 * **nil**: Takes no arguments. When invoked, clones Nil and returns the result. [Note: should be removed from the core]
 * **func**: Described later
-* **println**
+* **println**: Takes one argument. Runs *tos* on the argument and then prints it to standard out.
 
 **objects**
 
-* **Object**: ...
-* **Number**: ...
-* **String**: ...
-* **False**: ...
-* **Nil**: ...
-* **True**: ...
-* **Array**: ...
-* **Function**: ...
-* **Message**: ...
+* **Object**: Used as protos for the remaining eight objects in this list.
+* **Number**: Used as protos for numbers.
+* **String**: Used as protos for strings.
+* **Array**: Used as protos for array objects.
+* **Function**: Used as protos for functions.
+* **Message**: Used as protos for messages.
+* **True**: Used as protos for objects representing false.
+* **False**: Used as protos for objects representing truth.
+* **Nil**: Used as protos for objects representing nothingness.
 
 It also contains **protos** ... explain ...
+
+### Object
+
+* clone:   Function that takes no arguments and returns a new object with its protos slot set to the target of the clone invokation.
+* delete:  Function that takes a single string as argument. Removes the slot by that name, if such a slot exists. Returns the object itself.
+* same:    Function that takes a single object as argument. Returns "True clone" if the argument and the target are the SAME object. Otherwise it returns "False clone"
+* send:    Function that takes a single message as argument. Passes that message to the target object and returns the result. If the target object is unable to respond to the message, it is instead passed as an argument to the function "missing" of the target, if the target has such a method. If not, "Nil clone" is returned.
+* slot:    Function that takes either a single string OR a string and an object as arguments. If given a single string, it returns the slot by that name (without calling it, if it is a function). If there is no slot by that name, it returns "Nil clone". If given a string and an object, it sets the slot with the name of the string to the value of the object. Then it returns the target object itself.
+* slots:   Function that takes no arguments and returns an array of all the names of the slots on this object.
+* tos:     Function that takes no arguments and returns a string containing the names of all the slots in the target object.
+
+### Number
+
+* *:      Function taking a single number as argument. Multiplies the argument with the target and returns a new number respresenting the resulting value. There are no overflows.
+* +:      Function taking a single number as argument. Adds the argument with the target and returns a new number respresenting the resulting value. There are no overflows.
+* -:      Function taking a single number as argument. Subtracts the argument from the target and returns a new number respresenting the resulting value. There are no overflows.
+* /:      Function taking a single number as argument. Divides the target with the arguments and returns a new number respresenting the resulting value. There are no overflows. If the argument is 0, *Nil clone* is returned.
+* <:      Function taking a single number as argument. Returns *True clone* if the target number is smaller than the argument. Returns *False clone* otherwise.
+* >:      Function taking a single number as argument. Returns *True clone* if the target number is larger than the argument. Returns *False clone* otherwise.
+* protos: An array containing *Object* as it single element.
+* tos:    Function taking no arguments and returning a string representing the target number.
+
+### String
+
+* fromArray: Function that creates a string from an array of numbers
+* parse:     Function that parses a string to an array of messages.
+* protos:
+* toArray:   Function that returns an array of numbers from the string
+* tos:
+
+### Array
+
+* at:     Function that takes a number as its argument and return the array index at that index, starting from zero. Returns "Nil clone" if the argument is out of range.
+* clone:
+* length: Function that return the number of items in the array.
+* protos:
+* push:
+* tos:
+
+### Function
+
+* protos:
+* tos:
+
+### Message
+
+* name:      String representing the name of the message. "Nil clone" if the message is a literal value or a comment. The message "\n" is reserved for actual newlines.
+* value:     A string or a number if the message is a literal value. "Nil clone" if it is a symbolic message or a comment.
+* comment:   The comment string, if this message is a comment. "Nil clone" if it is a symbolic message or a literal value.
+* arguments: Array of arguments belonging to the message. Every element is an array of messages.
+* line:      Number representing the line of the source file where the message started.
+* column:    Number representing the column of the source file where the message started.
+* file:      String representing the name of the source file where the message was defined.
+
+
+Notes
+-----
+* If a function is cloned, the new object will not be a function itself. It will just have the function as a proto.
+* The paraenthesis are optional when invoking a function. Simply stating the name of it will invoke it.
+* Use slot("name_of_function") to get a reference to a function without invoking it.
+* The protos-slot can be a single object or an array. If it is a single object, that single object is the prototype. If it is an array, every object in that array serve as prototypes. (The reason for this is that cloning an array would cause an infinite loop if the clone required a new array for the protos slot).
+* An object is considered falsy if Nil or False is can be found among its ancestors (note: note just its parents)
+* All objects that are not falsy are considered truthy
+
+
+ToDo
+----
+Implement the parse-method (and proper message objects)
+Tests for accessing undefined slots
+Method missing
+User-defined functions
+Tail recursion
+Operators
+JavaScript interoperability
+Exceptions (maybe)
 
 
 License
