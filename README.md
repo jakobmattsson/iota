@@ -127,15 +127,12 @@ Notes
 
 ToDo
 ----
-1. Implement the parse-method (and proper message objects)
-2. Tests for accessing undefined slots
-3. Method missing
-4. User-defined functions
-5. Tail recursion
-6. Operators
-7. JavaScript interoperability
-8. Exceptions (maybe)
-
+1.   Method missing
+2.   User-defined functions
+3.   Tail recursion
+4.   Operators
+5.   JavaScript interoperability
+6.   Exceptions
 
 License
 -------

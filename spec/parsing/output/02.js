@@ -1,18 +1,15 @@
 [[{
-    "name": "a12",
-    "value": null,
-    "comment": null,
+    "type": "symbol",
+    "value": "a12",
     "arguments": [],
     "line": 1,
     "column": 1
 }, {
-    "name": "+",
-    "value": null,
-    "comment": null,
+    "type": "symbol",
+    "value": "+",
     "arguments": [[[{
-        "name": null,
-        "value": "45",
-        "comment": null,
+        "type": "number",
+        "value": 45,
         "arguments": [],
         "line": 1,
         "column": 7

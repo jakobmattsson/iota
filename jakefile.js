@@ -3,9 +3,10 @@ var iota = require('./src/iota');
 var async = require('async');
 var _ = require('underscore');
 
-namespace('spec', function() {
-  desc('Run the parser tests');
-  task('parser', [], function() {
+desc('Run the tests');
+task('spec', function() {
+
+  var testParser = function(complete) {
     fs.readdir('spec/parsing/input', function(err, files) {
       async.map(files, function(file, callback) {
         fs.readFile('spec/parsing/input/' + file, 'utf-8', function(err, input) {
@@ -29,37 +30,34 @@ namespace('spec', function() {
         });
       }, function(err, list) {
         if (err) {
-          console.log("Test error:", err);
+          complete(err);
           return;
         }
-        var failures = 0;
-        list.forEach(function(item) {
+        complete(null, list.map(function(item) {
           var tokens = iota.tokenize(item.content);
           var messages = iota.parse(tokens);
           var specData = eval(item.expected);
           var msgs = eval(JSON.stringify(messages));
 
           if (_.isEqual(specData, msgs)) {
-            console.log(item.id, item.name, "OK");
+            return { name: "Parsing " + item.id + ": " + item.name, msg: null };
           } else {
-            failures++;
-            console.log(item.id, item.name, "FAILED");
-            console.log("Expected:");
-            console.log("  ", specData);
-            console.log("Got:");
-            console.log("  ", msgs);
-            console.log();
+            return { 
+              name: "Parsing " + item.id + ": " + item.name, 
+              msg: [
+                "Expected:",
+                "  " + JSON.stringify(specData),
+                "Got:",
+                "  " + JSON.stringify(msgs)
+                ].join('\n')
+            };
           }
-        });
-        if (failures > 0) {
-          console.log("Total failures: " + failures);
-        }
+        }));
       });
     });
-  });
+  };
 
-  desc('Run the interpreter tests');
-  task('interpreter', [], function() {
+  var testInterpreter = function(complete) {
     fs.readdir('spec/interpreting/core', function(err, files) {
       async.map(files, function(item, callback) {
         fs.readFile('spec/interpreting/core/' + item, 'utf8', function(err, data) {
@@ -74,19 +72,22 @@ namespace('spec', function() {
         });
       }, function(err, list) {
         if (err) {
-          console.log("Test error:", err);
+          complete(err);
           return;
         }
-        list.map(function(file) {
+
+        var res = [];
+
+        list.forEach(function(file) {
           var errors = 0;
           var tokens = iota.tokenize(file.content);
           var messages = iota.parse(tokens);
 
           var expected = messages.map(function(msgLine) {
             return msgLine.filter(function(msg) {
-              return msg.comment && msg.comment[0] == "=";
+              return msg.type == "comment" && msg.value[0] == "=";
             }).map(function(msg) {
-              return msg.comment.slice(1).trim();
+              return msg.value.slice(1).trim();
             });
           }).filter(function(comments) {
             return comments.length > 0;
@@ -95,44 +96,135 @@ namespace('spec', function() {
           });
 
           try {
-            console.log("Executing " + file.filename + "...");
             iota.interpret(messages, {
               println: function(x, line) {
                 var next = expected.shift();
                 if (x != next) {
-                  errors++;
-                  console.log("Line " + line + "; expected:");
-                  console.log("  ", next);
-                  console.log("Got:");
-                  console.log("  ", x);
-                  console.log();
-                  console.log();
+                  res.push({
+                    name: file.filename + ", line " + line,
+                    msg: ["Expected:", "  " + next, "Got:", "  " + x].join('\n')
+                  });
                 } else {
-                  console.log("Line " + line + " OK");
+                  res.push({ name: file.filename + ", line " + line, msg: null });
                 }
               }
             });
             if (expected.length > 0) {
-              console.log("Never got the following:");
-              expected.forEach(function(x) {
-                errors++;
-                console.log("  " + x);
-              });
-              console.log();
+              res.push({ name: file.filename, msg: "Never got the following: " + expected.join('\n  ') });
             }
           } catch (ex) {
-            console.log("Exception raised!");
-            console.log(ex);
-            errors++;
+            res.push({ name: file.filename, msg: "Exception raised: " + ex });
           }
-          return {
-            filename: file.filename,
-            errors: errors
-          };
-        }).forEach(function(r) {
-          console.log("Total errors in " + r.filename + ": " + r.errors);
         });
+
+        complete(null, res);
       });
     });
+  };
+
+  var testInterpreterErrors = function(complete) {
+    fs.readdir('spec/interpreting/errors', function(err, files) {
+      async.map(files, function(item, callback) {
+        fs.readFile('spec/interpreting/errors/' + item, 'utf8', function(err, data) {
+          if (err) {
+            callback(err);
+            return;
+          }
+          callback(err, {
+            filename: item,
+            content: data
+          });
+        });
+      }, function(err, list) {
+        if (err) {
+          complete(err);
+          return;
+        }
+
+        var res = [];
+
+        list.map(function(file) {
+          var tokens = iota.tokenize(file.content);
+          var messages = iota.parse(tokens);
+          var gotError = false;
+
+          var expected = messages.map(function(msgLine) {
+            return msgLine.filter(function(msg) {
+              return msg.type == "comment" && msg.value[0] == "=";
+            }).map(function(msg) {
+              return msg.value.slice(1).trim();
+            });
+          }).filter(function(comments) {
+            return comments.length > 0;
+          }).map(function(comments) {
+            return comments[0];
+          }).join("");
+
+          try {
+            iota.interpret(messages, {
+              error: function(msg) {
+                gotError = true;
+                if (msg != expected) {
+                  res.push({
+                    name: file.filename,
+                    msg: [
+                      "Exception caught, expected:",
+                      "  " + expected,
+                      "Got:",
+                      "  " + msg
+                    ].join("\n")
+                  });
+                } else {
+                  res.push({ name: file.filename, msg: null });
+                }
+              }
+            });
+          } catch (ex) {
+            res.push({ name: file.filename, msg: "Exception raised: " + ex });
+          }
+
+          if (!gotError) {
+            res.push({ name: file.filename, msg: "Never got an exception" });
+          }
+        });
+
+        complete(null, res);
+      });
+    });
+  };
+
+  async.series([testParser, testInterpreter, testInterpreterErrors], function(err, results) {
+    var flatResults = _.flatten(results);
+
+    var tests = flatResults.reduce(function(acc, item) {
+      acc[item.name] = acc[item.name] || !!item.msg;
+      return acc;
+    }, {});
+    console.log("TESTS");
+    console.log("======================================================================");
+    Object.keys(tests).forEach(function(test) {
+      console.log(tests[test] ? "FAILED" : "OK    ", test);
+    });
+    console.log();
+    console.log();
+    console.log();
+
+    var errors = flatResults.filter(function(x) { return x.msg; });
+    if (errors.length > 0) {
+      console.log("ERRORS");
+      console.log("======================================================================");
+      errors.forEach(function(error) {
+        console.log(error.name);
+        console.log(error.msg);
+        console.log("======================================================================");
+      });
+      console.log();
+      console.log();
+      console.log();
+    }
+
+    console.log("SUMMARY");
+    console.log("======================================================================");
+    console.log("OK:", flatResults.length - errors.length, "FAILED:", errors.length);
   });
 });

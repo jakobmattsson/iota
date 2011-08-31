@@ -1,19 +1,17 @@
+// string, number, comment, symbol
 [[{
-    "name": null,
-    "value": "123",
-    "comment": null,
+    "type": "number",
+    "value": 123,
     "arguments": [],
     "line": 1,
     "column": 1
 },
 {
-    "name": "+",
-    "value": null,
-    "comment": null,
+    "type": "symbol",
+    "value": "+",
     "arguments": [[[{
-        "name": null,
-        "value": "45",
-        "comment": null,
+        "type": "number",
+        "value": 45,
         "arguments": [],
         "line": 1,
         "column": 7
@@ -22,13 +20,11 @@
     "column": 5
 },
 {
-    "name": "+",
-    "value": null,
-    "comment": null,
+    "type": "symbol",
+    "value": "+",
     "arguments": [[[{
-        "name": null,
+        "type": "string",
         "value": "hejsan",
-        "comment": null,
         "arguments": [],
         "line": 1,
         "column": 13
@@ -36,32 +32,27 @@
     "line": 1,
     "column": 11
 }], [{
-    "name": "f",
-    "value": null,
-    "comment": null,
+    "type": "symbol",
+    "value": "f",
     "arguments": [[[{
-        "name": null,
-        "value": "1",
-        "comment": null,
+        "type": "number",
+        "value": 1,
         "arguments": [],
         "line": 3,
         "column": 3
     }]], [[{
-        "name": null,
-        "value": "2",
-        "comment": null,
+        "type": "number",
+        "value": 2,
         "arguments": [],
         "line": 3,
         "column": 6
     },
     {
-        "name": "cat",
-        "value": null,
-        "comment": null,
+        "type": "symbol",
+        "value": "cat",
         "arguments": [[[{
-            "name": null,
-            "value": "3",
-            "comment": null,
+            "type": "number",
+            "value": 3,
             "arguments": [],
             "line": 3,
             "column": 12
@@ -69,48 +60,42 @@
         "line": 3,
         "column": 8
     }]], [[{
-        "name": "x",
-        "value": null,
-        "comment": null,
+        "type": "symbol",
+        "value": "x",
         "arguments": [],
         "line": 4,
         "column": 3
     },
     {
-        "name": "and",
-        "value": null,
-        "comment": null,
+        "type": "symbol",
+        "value": "and",
         "arguments": [],
         "line": 4,
         "column": 5
     },
     {
-        "name": "y",
-        "value": null,
-        "comment": null,
+        "type": "symbol",
+        "value": "y",
         "arguments": [],
         "line": 4,
         "column": 9
     }], [{
-        "name": "z",
-        "value": null,
-        "comment": null,
+        "type": "symbol",
+        "value": "z",
         "arguments": [],
         "line": 5,
         "column": 3
     },
     {
-        "name": "for",
-        "value": null,
-        "comment": null,
+        "type": "symbol",
+        "value": "for",
         "arguments": [],
         "line": 5,
         "column": 5
     },
     {
-        "name": "zorro",
-        "value": null,
-        "comment": null,
+        "type": "symbol",
+        "value": "zorro",
         "arguments": [],
         "line": 5,
         "column": 9
@@ -118,9 +103,8 @@
     "line": 3,
     "column": 1
 }], [{
-    "name": null,
-    "value": null,
-    "comment": " Test escaping of strings",
+    "type": "comment",
+    "value": " Test escaping of strings",
     "arguments": [],
     "line": 8,
     "column": 1
