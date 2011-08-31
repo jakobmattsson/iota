@@ -25,7 +25,7 @@ var caseInsensitiveSortFunc = function(a, b) {
 
 
 var tokenize = function(data) {
-  if (data == null) {
+  if (data === null) {
     throw "The argument to tokenzie must be a non-null string";
   }
 
@@ -42,7 +42,6 @@ var tokenize = function(data) {
 
   lines.forEach(function(line, lineNum) {
     var i = 0;
-    var sym = "";
 
     while (i < line.length) {
       if (exopSymbols.indexOf(line[i]) != -1) {
@@ -52,12 +51,12 @@ var tokenize = function(data) {
         i++;
       } else if (48 <= charCode(line[i]) && charCode(line[i]) <= 57) {
         var num = "";
-        var currentCol = i + 1;
+        var col = i + 1;
         while (48 <= charCode(line[i]) && charCode(line[i]) <= 57) {
           num += line[i];
           i++;
         }
-        tokens.push({ lexeme: num, type: 'number', line: lineNum+1, col: currentCol });
+        tokens.push({ lexeme: num, type: 'number', line: lineNum+1, col: col });
       } else if (stringSymbols.indexOf(line[i]) != -1) {
         var str = "";
         var escape = false;
@@ -116,7 +115,7 @@ var parse = function(tokens) {
   var formArguments = function(tokens) {
 
     if (tokens.length > 0 && tokens[0].type != "symbol" || tokens[0].lexeme != "(") {
-      return { arguments: args, consumed: 0 };
+      return { 'arguments': args, consumed: 0 };
     }
 
     var args = [];
@@ -143,14 +142,14 @@ var parse = function(tokens) {
         args.push(currArg);
         currArg = [];
       } else if (tokens[i].type == "string" || tokens[i].type == "number") {
-        currLine.push({ type: tokens[i].type, value: tokens[i].type == "number" ? parseInt(tokens[i].lexeme, 10) : tokens[i].lexeme, arguments: [], line: tokens[i].line, column: tokens[i].col });
+        currLine.push({ type: tokens[i].type, value: tokens[i].type == "number" ? parseInt(tokens[i].lexeme, 10) : tokens[i].lexeme, 'arguments': [], line: tokens[i].line, column: tokens[i].col });
       } else if (tokens[i].type == "comment") {
-        currLine.push({ type: "comment", value: tokens[i].lexeme, arguments: [], line: tokens[i].line, column: tokens[i].col });
+        currLine.push({ type: "comment", value: tokens[i].lexeme, 'arguments': [], line: tokens[i].line, column: tokens[i].col });
       } else {
         var a = formArguments(tokens.slice(i+1));
         
         
-        currLine.push({ type: "symbol", value: tokens[i].lexeme, arguments: a.arguments || [], line: tokens[i].line, column: tokens[i].col });
+        currLine.push({ type: "symbol", value: tokens[i].lexeme, 'arguments': a['arguments'] || [], line: tokens[i].line, column: tokens[i].col });
         i += a.consumed;
       }
       i++;
@@ -160,7 +159,7 @@ var parse = function(tokens) {
       currArg.push(currLine);
     }
     args.push(currArg);
-    return { arguments: args, consumed: i };
+    return { 'arguments': args, consumed: i };
   };
 
   var tks = [];
@@ -175,10 +174,10 @@ var parse = function(tokens) {
     console.log("Unmatched parenthesis at line " + unmatched.line + ", column " + unmatched.col);
     process.exit(0);
   }
-  console.assert(result.arguments.length == 1);
+  console.assert(result['arguments'].length == 1);
 
-  return result.arguments[0];
-}
+  return result['arguments'][0];
+};
 
 var interpret = function(messages, evalConfig) {
 
@@ -196,7 +195,7 @@ var interpret = function(messages, evalConfig) {
     });
 
     return target;
-  }
+  };
   var evalMessage = function(target, msg, context) {
 
     if (typeof context === "undefined") {
@@ -220,7 +219,7 @@ var interpret = function(messages, evalConfig) {
           var doBreak = false;
           traverse(items[i].keys.protos.value, name, function(item) {
             doBreak = true;
-            callback(item)
+            callback(item);
           });
           if (doBreak) {
             return true;
@@ -231,24 +230,29 @@ var interpret = function(messages, evalConfig) {
     };
     var invoke = function(t, context, args) {
       if (t.type == "function") {
-        return t.value.apply(context, args);
+        return t.value.call(null, {
+          target: context,
+          sender: null,
+          message: null,
+          'arguments': args
+        });
       } else {
         return t;
       }
     };
 
     if (target.keys[msg.keys.value.value]) {
-      return invoke(target.keys[msg.keys.value.value], context, msg.keys.arguments.value);
+      return invoke(target.keys[msg.keys.value.value], context, msg.keys['arguments'].value);
     } else {
       var result = null;
       if (typeof target.keys.protos === "undefined") {
         throw 'No response to message "' + msg.keys.value.value + '" at line ' + msg.keys.line.value + ', column ' + msg.keys.column.value;
       } else if (target.keys.protos.type == "array") {
         var matchedAny = traverse(target.keys.protos.value, msg.keys.value.value, function(item) {
-          result = invoke(item.keys[msg.keys.value.value], context, msg.keys.arguments.value);
+          result = invoke(item.keys[msg.keys.value.value], context, msg.keys['arguments'].value);
         });
         if (!matchedAny) {
-          throw "No matches!"
+          throw "No matches!";
         }
       } else {
         result = evalMessage(target.keys.protos, msg, target);
@@ -263,7 +267,7 @@ var interpret = function(messages, evalConfig) {
       throw msg;
     }
     return x;
-  }
+  };
   var evalToString = function(i, msg) {
     var x = evalExpression(i);
     if (x.type !== "string" || typeof x.value !== "string") {
@@ -290,7 +294,7 @@ var interpret = function(messages, evalConfig) {
       type: "array",
       value: data,
       keys: {
-        protos: protos || lobby.keys["Array"]
+        protos: protos || get('Array')
       }
     };
 
@@ -318,9 +322,9 @@ var interpret = function(messages, evalConfig) {
     return {
       type: "bool",
       keys: {
-        protos: iotaArrayCreate([lobby.keys[bit ? 'True' : 'False']]),
+        protos: iotaArrayCreate([lobby.keys[bit ? 'True' : 'False']])
       }
-    }  
+    };
   };
   var iotaNilCreate = function() {
     return {
@@ -328,7 +332,7 @@ var interpret = function(messages, evalConfig) {
       value: "nada",
       keys: {
         protos: iotaArrayCreate([lobby.keys.Nil])
-      },
+      }
     };
   };
   var iotaFunctionCreate = function(callback) {
@@ -336,13 +340,13 @@ var interpret = function(messages, evalConfig) {
       type: "function",
       value: callback,
       keys: {
-        protos: iotaArrayCreate([lobby.keys["Function"]])
+        protos: iotaArrayCreate([get("Function")])
       }
     };
   };
 
   var toIotaFormat = function(x) {
-    if (x == null) {
+    if (x === null) {
       return iotaNilCreate();
     }
     if (typeof x === 'string') {
@@ -367,9 +371,9 @@ var interpret = function(messages, evalConfig) {
       type: "object",
       value: null,
       keys: {
-        protos: iotaArrayCreate([lobby.keys.Object])
+        protos: iotaArrayCreate([get('Object')])
       }
-    }
+    };
 
     Object.keys(x).forEach(function(key) {
       o.keys[key] = toIotaFormat(x[key]);
@@ -378,7 +382,7 @@ var interpret = function(messages, evalConfig) {
     return o;
   };
 
-  var def = function(prop, val) {
+  var def = function(prop, val, properFunction) {
     var props = prop.split(' ');
     var name = props.slice(-1)[0];
     var target = props.slice(0, -1).reduce(function(acc, next) {
@@ -393,11 +397,25 @@ var interpret = function(messages, evalConfig) {
     }
 
     if (typeof val === 'function') {
-      target.keys[name] = iotaFunctionCreate(val);
+      if (properFunction) {
+        target.keys[name] = iotaFunctionCreate(val);
+      } else {
+        target.keys[name] = iotaFunctionCreate(function(call) {
+          return val.apply(call.target, call['arguments']);
+        });
+      }
     } else {
       target.keys[name] = val;
     }
-  }
+  };
+  var get = function(prop) {
+    return prop.split(' ').reduce(function(acc, next) {
+      if (!acc.keys[next]) {
+        acc.keys[next] = {};
+      }
+      return acc.keys[next];
+    }, lobby);
+  };
 
   var lobby = { keys: { Object: {}, Array: { value: [] }, Function: {} } };
 
@@ -408,7 +426,7 @@ var interpret = function(messages, evalConfig) {
       keys: {
         protos: iotaArrayCreate([this])
       }
-    }
+    };
   });
   def('Object delete', function(property) {
     delete this.keys[evalToString(property).value];
@@ -422,12 +440,11 @@ var interpret = function(messages, evalConfig) {
     return evalMessage(this, evaledMsg);
   });
   def('Object slot', function(name, value) {
+    var slotName = evalToString(name);
     if (arguments.length == 1) {
-      var slotName = evalToString(name);
       var what = this.keys[slotName.value];
       return what;
     } else {
-      var slotName = evalToString(name);
       var val = evalExpression(value);
       this.keys[slotName.value] = val;
       return this;
@@ -443,7 +460,7 @@ var interpret = function(messages, evalConfig) {
     return iotaStringCreate("{ " + Object.keys(this.keys).sort(caseInsensitiveSortFunc).join(", ") + " }");
   });
 
-  def('Array protos', iotaArrayCreate([lobby.keys["Object"]]));
+  def('Array protos', iotaArrayCreate([get("Object")]));
   def('Array clone', function() {
     return iotaArrayCreate([], this);
   });
@@ -455,13 +472,13 @@ var interpret = function(messages, evalConfig) {
     return this;
   });
   def('Array tos', function() {
-    if (this == lobby.keys["Array"]) {
+    if (this == get("Array")) {
       return iotaStringCreate("Array");
     }
 
     var str = "[ ";
     str += this.value.map(function(x, i) {
-      var res = evalMessage(x, toIotaFormat({ value: 'tos', arguments: [], line: -1, column: -1, type: "symbol" }));
+      var res = evalMessage(x, toIotaFormat({ value: 'tos', 'arguments': [], line: -1, column: -1, type: "symbol" }));
       return res.value;
     }).join(", ");
     str += " ]";
@@ -471,46 +488,46 @@ var interpret = function(messages, evalConfig) {
     var x = evalToNumber(i, "The argument to Array.at must be a number");
     var result = this.value[x.value];
     return result;
-  })
+  });
 
-  def('Number protos', iotaArrayCreate([lobby.keys["Object"]]))
+  def('Number protos', iotaArrayCreate([get("Object")]));
   def('Number +', function(x) {
-    if (arguments.length != 1 || arguments[0].length == 0) { // andra predikatet är för att förhindra "inget"
+    if (arguments.length !== 1 || arguments[0].length === 0) { // andra predikatet är för att förhindra "inget"
       throw "Number.+ must take exactly one argument";
     }
     var evaledX = evalToNumber(x, "The argument to Number.+ must be a number");
     return iotaNumberCreate(this.value + evaledX.value);
   });
   def('Number -', function(x) {
-    if (arguments.length != 1 || arguments[0].length == 0) {
+    if (arguments.length !== 1 || arguments[0].length === 0) {
       throw "Number.- must take exactly one argument";
     }
     var evaledX = evalToNumber(x, "The argument to Number.- must be a number");
     return iotaNumberCreate(this.value - evaledX.value);
   });
   def('Number *', function(x) {
-    if (arguments.length != 1 || arguments[0].length == 0) {
+    if (arguments.length !== 1 || arguments[0].length === 0) {
       throw "Number.* must take exactly one argument";
     }
     var evaledX = evalToNumber(x, "The argument to Number.* must be a number");
     return iotaNumberCreate(this.value * evaledX.value);
   });
   def('Number /', function(x) {
-    if (arguments.length != 1 || arguments[0].length == 0) {
+    if (arguments.length !== 1 || arguments[0].length === 0) {
       throw "Number./ must take exactly one argument";
     }
     var evaledX = evalToNumber(x, "The argument to Number./ must be a number");
     return iotaNumberCreate(this.value / evaledX.value);
   });
   def('Number <', function(x) {
-    if (arguments.length != 1 || arguments[0].length == 0) {
+    if (arguments.length !== 1 || arguments[0].length === 0) {
       throw "Number.< must take exactly one argument";
     }
     var evaledX = evalToNumber(x, "The argument to Number.< must be a number");
     return iotaBooleanCreate(this.value < evaledX.value);
   });
   def('Number >', function(x) {
-    if (arguments.length != 1 || arguments[0].length == 0) {
+    if (arguments.length !== 1 || arguments[0].length === 0) {
       throw "Number.> must take exactly one argument";
     }
     var evaledX = evalToNumber(x, "The argument to Number.> must be a number");
@@ -525,25 +542,25 @@ var interpret = function(messages, evalConfig) {
   });
 
   def('Function tos', function() { return iotaStringCreate("FUNCTION"); });
-  def('Function protos', iotaArrayCreate([lobby.keys["Object"]]));
+  def('Function protos', iotaArrayCreate([get("Object")]));
 
-  def('Nil protos', iotaArrayCreate([lobby.keys["Object"]]));
-  def('Nil tos', function() { return iotaStringCreate("nil"); })
+  def('Nil protos', iotaArrayCreate([get("Object")]));
+  def('Nil tos', function() { return iotaStringCreate("nil"); });
 
-  def('True protos', iotaArrayCreate([lobby.keys["Object"]]));
-  def('True tos', function() { return iotaStringCreate("true"); })
+  def('True protos', iotaArrayCreate([get("Object")]));
+  def('True tos', function() { return iotaStringCreate("true"); });
 
-  def('False protos', iotaArrayCreate([lobby.keys["Object"]]));
-  def('False tos', function() { return iotaStringCreate("false"); })
+  def('False protos', iotaArrayCreate([get("Object")]));
+  def('False tos', function() { return iotaStringCreate("false"); });
 
-  def('String protos', iotaArrayCreate([lobby.keys["Object"]]));
+  def('String protos', iotaArrayCreate([get("Object")]));
   def('String parse', function() {
     var retypeArgument = function(argument) {
       argument.value.forEach(function(a) {
         a.value.forEach(function(x) {
           x.type = "message";
           x.keys.protos = iotaArrayCreate([lobby.keys.Message]);
-          x.keys.arguments.value.forEach(function(y) {
+          x.keys['arguments'].value.forEach(function(y) {
             retypeArgument(y);
           });
         });
@@ -565,10 +582,10 @@ var interpret = function(messages, evalConfig) {
     return iotaStringCreate(String.fromCharCode.apply(null, evalExpression(x).value.map(function(e) {
       return e.value;
     })));
-  })
-  def('String tos', function() { return iotaStringCreate(this.value); })
+  });
+  def('String tos', function() { return iotaStringCreate(this.value); });
 
-  def('Message protos', iotaArrayCreate([lobby.keys["Object"]]));
+  def('Message protos', iotaArrayCreate([get("Object")]));
   def('Message tos', function() { return iotaStringCreate("a message"); });
 
   def('if', function(x, y, z) {
@@ -589,16 +606,36 @@ var interpret = function(messages, evalConfig) {
   def('true', function() { return iotaBooleanCreate(true); });
   def('false', function() { return iotaBooleanCreate(false); });
   def('nil', function() { return iotaNilCreate(); });
-  def('func', function() {
+  def('func', function(call) {
+
     throw "not implemented";
-  });
+
+    var f = function(call) {
+      
+      console.log("Invoked user defined function");
+      console.log(call);
+      
+      // här måste jag ha tillgång till
+      // * target
+      // * sender
+      // * arguments (dessa har jag)
+      // * message (det som aktiverade funktionen)
+      
+      // exekvera koden i body på något lämpligt sätt.
+      
+      
+      
+    };
+    
+    return iotaFunctionCreate(f);
+  }, true);
   def('println', function(x) {
     var e = evalExpression(x);
-    var after = evalMessage(e, toIotaFormat({ value: 'tos', arguments: [], line: -1, column: -1, type: "symbol" }));
+    var after = evalMessage(e, toIotaFormat({ value: 'tos', 'arguments': [], line: -1, column: -1, type: "symbol" }));
     var line = x.value.map(function(e) { return e.value; })[0][0].keys.line.value;
     evalConfig.println(after.value, line);
   });
-  def('protos', iotaArrayCreate([lobby.keys["Object"]]))
+  def('protos', iotaArrayCreate([get("Object")]));
 
   evalConfig = evalConfig || {};
   if (!evalConfig.println) {

@@ -127,8 +127,8 @@ Notes
 
 ToDo
 ----
-1.   Method missing
-2.   User-defined functions
+1.   User-defined functions
+2.   Method missing
 3.   Tail recursion
 4.   Operators
 5.   JavaScript interoperability

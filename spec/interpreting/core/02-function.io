@@ -10,14 +10,21 @@ slot("lobby", func(
 
 slot("lobbyInstance", lobby())
 
+
+
 slot("f1", func(
-  call sender same(lobbyInstance) println #= true
-  call target same(lobbyInstance) println #= true
-  call callee same(getSlot("f1")) println #= true
+  call sender same(lobbyInstance) println
+  call target same(lobbyInstance) println
+  call callee same(getSlot("f1")) println
 ))
 f1
+#= true
+#= true
+#= true
 
 
+
+# 
 # slot("f2", func(
 #   call message name println #= f
 #   call message arguments protos length println #= 1
