@@ -23,7 +23,6 @@ var caseInsensitiveSortFunc = function(a, b) {
    }
 };
 
-
 var tokenize = function(data) {
   if (data === null) {
     throw "The argument to tokenzie must be a non-null string";
@@ -182,24 +181,19 @@ var parse = function(tokens) {
 var interpret = function(messages, evalConfig) {
 
   var evalExpression = function(expression, context) {
-
-    if (arguments.length < 2) {
-      context = lobby;
-    }
-
+    var target = iotaNilCreate();
     expression.value.forEach(function(messageChain) {
       target = context; // detta är inte nödvändigtvis lobby, bara när man evaluerar i översta scope
       messageChain.value.forEach(function(message) {
-        target = evalMessage(target, message);
+        target = evalMessage(context, target, message);
       });
     });
-
     return target;
   };
-  var evalMessage = function(target, msg, context) {
+  var evalMessage = function(context, target, msg, lookupObject) {
 
-    if (typeof context === "undefined") {
-      context = target;
+    if (typeof lookupObject === "undefined") {
+      lookupObject = target;
     }
 
     if (msg.keys.type.value == "string" || msg.keys.type.value == "number") {
@@ -207,7 +201,7 @@ var interpret = function(messages, evalConfig) {
     }
 
     if (msg.keys.type.value == "comment") {
-      return target;
+      return lookupObject;
     }
 
     var traverse = function(items, name, callback) {
@@ -228,48 +222,51 @@ var interpret = function(messages, evalConfig) {
       }
       return false;
     };
-    var invoke = function(t, context, args) {
+    var invoke = function(t) {
       if (t.type == "function") {
-        return t.value.call(null, {
-          target: context,
-          sender: null,
-          message: null,
-          'arguments': args
-        });
+        return t.value.call(target, iotaObjectCreate({
+          callee: t,
+          target: target,
+          sender: context,
+          message: msg,
+          'arguments': msg.keys['arguments'].value
+        }));
       } else {
         return t;
       }
     };
 
-    if (target.keys[msg.keys.value.value]) {
-      return invoke(target.keys[msg.keys.value.value], context, msg.keys['arguments'].value);
+    if (lookupObject.keys[msg.keys.value.value]) {
+      return invoke(lookupObject.keys[msg.keys.value.value]);
     } else {
       var result = null;
-      if (typeof target.keys.protos === "undefined") {
+      if (typeof lookupObject.keys.protos === "undefined") {
         throw 'No response to message "' + msg.keys.value.value + '" at line ' + msg.keys.line.value + ', column ' + msg.keys.column.value;
-      } else if (target.keys.protos.type == "array") {
-        var matchedAny = traverse(target.keys.protos.value, msg.keys.value.value, function(item) {
-          result = invoke(item.keys[msg.keys.value.value], context, msg.keys['arguments'].value);
+      } else if (lookupObject.keys.protos.type == "array") {
+        // console.log(lookupObject.keys.protos);
+        var matchedAny = traverse(lookupObject.keys.protos.value, msg.keys.value.value, function(item) {
+          result = invoke(item.keys[msg.keys.value.value]);
         });
         if (!matchedAny) {
+          //console.log(msg.keys.value.value)
           throw "No matches!";
         }
       } else {
-        result = evalMessage(target.keys.protos, msg, target);
+        result = evalMessage(context, lookupObject, msg, lookupObject.keys.protos);
       }
 
       return result;
     }
   };
-  var evalToNumber = function(i, msg) {
-    var x = evalExpression(i);
+  var evalToNumber = function(i, context, msg) {
+    var x = evalExpression(i, context);
     if (x.type !== "number" || typeof x.value !== "number") {
       throw msg;
     }
     return x;
   };
-  var evalToString = function(i, msg) {
-    var x = evalExpression(i);
+  var evalToString = function(i, context, msg) {
+    var x = evalExpression(i, context);
     if (x.type !== "string" || typeof x.value !== "string") {
       throw msg;
     }
@@ -289,6 +286,23 @@ var interpret = function(messages, evalConfig) {
     }
   };
 
+  var iotaObjectCreate = function(properties) {
+    var o = {
+      type: "cloned",
+      value: "clone",
+      keys: {
+        protos: iotaArrayCreate([get('Object')])
+      }
+    };
+
+    for (var key in properties) {
+      if (properties.hasOwnProperty(key)) {
+        o.keys[key] = properties[key];
+      }
+    }
+
+    return o;
+  };
   var iotaArrayCreate = function(data, protos) {
     var result = {
       type: "array",
@@ -382,7 +396,7 @@ var interpret = function(messages, evalConfig) {
     return o;
   };
 
-  var def = function(prop, val, properFunction) {
+  var def = function(prop, val) {
     var props = prop.split(' ');
     var name = props.slice(-1)[0];
     var target = props.slice(0, -1).reduce(function(acc, next) {
@@ -397,13 +411,7 @@ var interpret = function(messages, evalConfig) {
     }
 
     if (typeof val === 'function') {
-      if (properFunction) {
-        target.keys[name] = iotaFunctionCreate(val);
-      } else {
-        target.keys[name] = iotaFunctionCreate(function(call) {
-          return val.apply(call.target, call['arguments']);
-        });
-      }
+      target.keys[name] = iotaFunctionCreate(val);
     } else {
       target.keys[name] = val;
     }
@@ -428,24 +436,28 @@ var interpret = function(messages, evalConfig) {
       }
     };
   });
-  def('Object delete', function(property) {
-    delete this.keys[evalToString(property).value];
+  def('Object delete', function(call) {
+    delete this.keys[evalToString(call.keys['arguments'][0], call.keys.sender).value];
     return this;
   });
-  def('Object same', function(x) {
-    return iotaBooleanCreate(this == evalExpression(x));
+  def('Object same', function(call) {
+    return iotaBooleanCreate(this == evalExpression(call.keys['arguments'][0], call.keys.sender));
   });
-  def('Object send', function(msg) {
-    var evaledMsg = evalExpression(msg);
-    return evalMessage(this, evaledMsg);
+  def('Object send', function(call) {
+    var evaledMsg = evalExpression(call.keys['arguments'][0], call.keys.sender);
+    return evalMessage(call.keys.sender, this, evaledMsg);
   });
-  def('Object slot', function(name, value) {
-    var slotName = evalToString(name);
-    if (arguments.length == 1) {
+  def('Object slot', function(call) {
+    var name = call.keys['arguments'][0];
+    var value = call.keys['arguments'][1];
+    var len = call.keys['arguments'].length;
+    
+    var slotName = evalToString(name, call.keys.sender);
+    if (len == 1) {
       var what = this.keys[slotName.value];
       return what;
     } else {
-      var val = evalExpression(value);
+      var val = evalExpression(value, call.keys.sender);
       this.keys[slotName.value] = val;
       return this;
     }
@@ -464,73 +476,73 @@ var interpret = function(messages, evalConfig) {
   def('Array clone', function() {
     return iotaArrayCreate([], this);
   });
-  def('Array length', function() {
-    return iotaNumberCreate(this.value.length);
+  def('Array length', function(call) {
+    return iotaNumberCreate(call.keys.target.value.length);
   });
-  def('Array push', function(x) {
-    this.value.push(evalExpression(x));
+  def('Array push', function(call) {
+    this.value.push(evalExpression(call.keys.arguments[0], call.keys.sender));
     return this;
   });
-  def('Array tos', function() {
+  def('Array tos', function(call) {
     if (this == get("Array")) {
       return iotaStringCreate("Array");
     }
 
     var str = "[ ";
     str += this.value.map(function(x, i) {
-      var res = evalMessage(x, toIotaFormat({ value: 'tos', 'arguments': [], line: -1, column: -1, type: "symbol" }));
+      var res = evalMessage(call.keys.sender, x, toIotaFormat({ value: 'tos', 'arguments': [], line: -1, column: -1, type: "symbol" }));
       return res.value;
     }).join(", ");
     str += " ]";
     return iotaStringCreate(str);
   });
-  def('Array at', function(i) {
-    var x = evalToNumber(i, "The argument to Array.at must be a number");
+  def('Array at', function(call) {
+    var x = evalToNumber(call.keys['arguments'][0], call.keys.sender, "The argument to Array.at must be a number");
     var result = this.value[x.value];
     return result;
   });
 
   def('Number protos', iotaArrayCreate([get("Object")]));
-  def('Number +', function(x) {
-    if (arguments.length !== 1 || arguments[0].length === 0) { // andra predikatet är för att förhindra "inget"
+  def('Number +', function(call) {
+    if (call.keys['arguments'].length !== 1 || call.keys['arguments'][0].length === 0) { // andra predikatet är för att förhindra "inget"
       throw "Number.+ must take exactly one argument";
     }
-    var evaledX = evalToNumber(x, "The argument to Number.+ must be a number");
+    var evaledX = evalToNumber(call.keys['arguments'][0], call.keys.sender, "The argument to Number.+ must be a number");
     return iotaNumberCreate(this.value + evaledX.value);
   });
-  def('Number -', function(x) {
-    if (arguments.length !== 1 || arguments[0].length === 0) {
+  def('Number -', function(call) {
+    if (call.keys['arguments'].length !== 1 || call.keys['arguments'][0].length === 0) {
       throw "Number.- must take exactly one argument";
     }
-    var evaledX = evalToNumber(x, "The argument to Number.- must be a number");
+    var evaledX = evalToNumber(call.keys['arguments'][0], call.keys.sender, "The argument to Number.- must be a number");
     return iotaNumberCreate(this.value - evaledX.value);
   });
-  def('Number *', function(x) {
-    if (arguments.length !== 1 || arguments[0].length === 0) {
+  def('Number *', function(call) {
+    if (call.keys['arguments'].length !== 1 || call.keys['arguments'][0].length === 0) {
       throw "Number.* must take exactly one argument";
     }
-    var evaledX = evalToNumber(x, "The argument to Number.* must be a number");
+    var evaledX = evalToNumber(call.keys['arguments'][0], call.keys.sender, "The argument to Number.* must be a number");
     return iotaNumberCreate(this.value * evaledX.value);
   });
-  def('Number /', function(x) {
-    if (arguments.length !== 1 || arguments[0].length === 0) {
+  def('Number /', function(call) {
+    if (call.keys['arguments'].length !== 1 || call.keys['arguments'][0].length === 0) {
       throw "Number./ must take exactly one argument";
     }
-    var evaledX = evalToNumber(x, "The argument to Number./ must be a number");
+    var evaledX = evalToNumber(call.keys['arguments'][0], call.keys.sender, "The argument to Number./ must be a number");
     return iotaNumberCreate(this.value / evaledX.value);
   });
-  def('Number <', function(x) {
-    if (arguments.length !== 1 || arguments[0].length === 0) {
+  def('Number <', function(call) {
+    if (call.keys['arguments'].length !== 1 || call.keys['arguments'][0].length === 0) {
       throw "Number.< must take exactly one argument";
     }
-    var evaledX = evalToNumber(x, "The argument to Number.< must be a number");
+    var evaledX = evalToNumber(call.keys['arguments'][0], call.keys.sender, "The argument to Number.< must be a number");
     return iotaBooleanCreate(this.value < evaledX.value);
   });
-  def('Number >', function(x) {
-    if (arguments.length !== 1 || arguments[0].length === 0) {
+  def('Number >', function(call) {
+    if (call.keys['arguments'].length !== 1 || call.keys['arguments'][0].length === 0) {
       throw "Number.> must take exactly one argument";
     }
-    var evaledX = evalToNumber(x, "The argument to Number.> must be a number");
+    var evaledX = evalToNumber(call.keys['arguments'][0], call.keys.sender, "The argument to Number.> must be a number");
     return iotaBooleanCreate(this.value > evaledX.value);
   });
   def('Number tos', function() {
@@ -578,8 +590,8 @@ var interpret = function(messages, evalConfig) {
   def('String toArray', function() {
     return iotaArrayCreate(stringToCharCodes(this.value).map(iotaNumberCreate));
   });
-  def('String fromArray', function(x) {
-    return iotaStringCreate(String.fromCharCode.apply(null, evalExpression(x).value.map(function(e) {
+  def('String fromArray', function(call) {
+    return iotaStringCreate(String.fromCharCode.apply(null, evalExpression(call.keys['arguments'][0], call.keys.sender).value.map(function(e) {
       return e.value;
     })));
   });
@@ -588,17 +600,25 @@ var interpret = function(messages, evalConfig) {
   def('Message protos', iotaArrayCreate([get("Object")]));
   def('Message tos', function() { return iotaStringCreate("a message"); });
 
-  def('if', function(x, y, z) {
-    if (!isFalsy(evalExpression(x))) {
-      return evalExpression(y);
-    } else if (arguments.length > 2) {
-      return evalExpression(z);
+  def('if', function(call) {
+    var len = call.keys['arguments'].length;
+    var x = call.keys['arguments'][0];
+    var y = call.keys['arguments'][1];
+    var z = call.keys['arguments'][2];
+
+    if (!isFalsy(evalExpression(x, call.keys.sender))) {
+      return evalExpression(y, call.keys.sender);
+    } else if (len > 2) {
+      return evalExpression(z, call.keys.sender);
     }
   });
-  def('while', function(condition, expression) {
+  def('while', function(call) {
+    var condition = call.keys['arguments'][0];
+    var expression = call.keys['arguments'][1];
+    
     var result = iotaNilCreate();
-    while (!isFalsy(evalExpression(condition))) {
-      result = evalExpression(expression);
+    while (!isFalsy(evalExpression(condition, call.keys.sender))) {
+      result = evalExpression(expression, call.keys.sender);
     }
     return result;
   });
@@ -606,32 +626,22 @@ var interpret = function(messages, evalConfig) {
   def('true', function() { return iotaBooleanCreate(true); });
   def('false', function() { return iotaBooleanCreate(false); });
   def('nil', function() { return iotaNilCreate(); });
-  def('func', function(call) {
-
-    throw "not implemented";
-
-    var f = function(call) {
-      
-      console.log("Invoked user defined function");
-      console.log(call);
-      
-      // här måste jag ha tillgång till
-      // * target
-      // * sender
-      // * arguments (dessa har jag)
-      // * message (det som aktiverade funktionen)
-      
-      // exekvera koden i body på något lämpligt sätt.
-      
-      
-      
-    };
-    
-    return iotaFunctionCreate(f);
-  }, true);
-  def('println', function(x) {
-    var e = evalExpression(x);
-    var after = evalMessage(e, toIotaFormat({ value: 'tos', 'arguments': [], line: -1, column: -1, type: "symbol" }));
+  def('func', function(creationCall) {
+    return iotaFunctionCreate(function(invocationCall) {
+      var locals = {
+        type: "locals",
+        keys: {
+          protos: iotaArrayCreate([invocationCall.keys.target, creationCall.keys.sender]),
+          call: invocationCall
+        }
+      };
+      return evalExpression(creationCall.keys['arguments'][0], locals);
+    });
+  });
+  def('println', function(call) {
+    var x = call.keys['arguments'][0];
+    var e = evalExpression(x, call.keys.sender);
+    var after = evalMessage(call.keys.sender, e, toIotaFormat({ value: 'tos', 'arguments': [], line: -1, column: -1, type: "symbol" }));
     var line = x.value.map(function(e) { return e.value; })[0][0].keys.line.value;
     evalConfig.println(after.value, line);
   });
@@ -645,12 +655,13 @@ var interpret = function(messages, evalConfig) {
   }
   if (!evalConfig.error) {
     evalConfig.error = function(str) {
+      console.log(str);
       throw str;
     };
   }
-  
+
   try {
-    evalExpression(toIotaFormat(messages));
+    evalExpression(toIotaFormat(messages), lobby);
   } catch (ex) {
     evalConfig.error(ex);
   }

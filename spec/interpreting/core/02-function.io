@@ -13,10 +13,12 @@ slot("lobbyInstance", lobby())
 
 
 slot("f1", func(
-  call sender same(lobbyInstance) println
-  call target same(lobbyInstance) println
-  call callee same(getSlot("f1")) println
+  println(call sender same(lobbyInstance))
+  println(call target same(lobbyInstance))
+  println(call slot("callee") same(call sender slot("f1"))) # Should not have to write "call sender" here
 ))
+
+
 f1
 #= true
 #= true
