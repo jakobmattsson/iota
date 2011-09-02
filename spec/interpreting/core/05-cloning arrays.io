@@ -7,4 +7,6 @@ x push(20)
 println(x length) #= 2
 
 slot("y", x clone)
-println(y protos length) #= 2
+println(y length) #= 0
+println(y protos length) #= 1
+println(y protos at(0) length) #= 2

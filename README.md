@@ -127,12 +127,14 @@ Notes
 
 ToDo
 ----
-1.   User-defined functions
-2.   Method missing
-3.   Tail recursion
-4.   Operators
-5.   JavaScript interoperability
-6.   Exceptions
+1.   Method missing
+2.   Operators
+3.   JavaScript interoperability
+
+Would be awesome if not too hard
+--------------------------------
+* Tail recursion
+* Exceptions
 
 License
 -------
