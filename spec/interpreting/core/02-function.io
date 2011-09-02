@@ -1,55 +1,43 @@
-## Below are some tests of the very basic predefined data in a program
-## They are all related to the func-function
-## Tests for the rest of the language can be found in a separate file
-
-
-
 slot("lobby", func(
-  call sender
+ call sender
 ))
 
-slot("lobbyInstance", lobby())
+println(slot("lobby") origin message arguments) #= [ [ [ call, sender ] ] ]
 
+slot("lobby2", func(
+ call slot("callee") origin sender
+))
 
+slot("lobbyInstance", lobby)
+
+println(slot("lobby") slots()) #= [ origin, protos ]
+
+println(lobby same(lobby)) #= true
 
 slot("f1", func(
+  println(call)
   println(call sender same(lobbyInstance))
   println(call target same(lobbyInstance))
-  println(call slot("callee") same(call sender slot("f1"))) # Should not have to write "call sender" here
+  println(call sender same(lobby2))
+  println(call target same(lobby))
+  println(call slot("callee") same(slot("f1")))
+  println(call message)
+  println(call message arguments length)
 ))
-
-
 f1
+#= { callee, message, protos, sender, target }
 #= true
 #= true
 #= true
+#= false
+#= true
+#= f1
+#= 0
 
+println(slot("f1") origin) #= { callee, message, protos, sender, target }
+println(slot("f1") origin slot("callee") same(slot("func"))) #= true
+println(slot("f1") origin message arguments length) #= 1
+println(slot("f1") origin message arguments at(0) length) #= 8
 
-
-# 
-# slot("f2", func(
-#   call message name println #= f
-#   call message arguments protos length println #= 1
-#   call message arguments protos at(0) same(Array) println #= true
-#   call message arguments length println #= 2
-# 
-#   call message arguments at(0) protos at(0) same(Array) #= true
-#   call message arguments at(0) length #= 1
-#   call message arguments at(0) at(0) protos length #= 1
-#   call message arguments at(0) at(0) protos at(0) same(Message) #= true
-# 
-#   call message arguments at(1) protos at(0) same(Array) #= true
-#   call message arguments at(1) length #= 1
-#   call message arguments at(1) at(0) protos length #= 1
-#   call message arguments at(1) at(0) protos at(0) same(Message) #= true
-# 
-#   # testa innehållen i de skickade meddelandena
-# 
-#   call sender same(lobbyInstance) println #= true
-#   call target same(something) println #= true
-#   call callee same(getSlot("f2")) println #= true
-#   call callee same(something getSlot("f")) println #= true
-# ))
-# slot("something", new)
-# something slot("f", getSlot("f2"))
-# something f(10, 20)
+slot("unused", func(a b; c(d, e) f, g h(i)))
+println(slot("unused") origin message) #= func(a b; c(d, e) f, g h(i))
