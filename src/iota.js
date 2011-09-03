@@ -407,6 +407,12 @@ var interpret = function(messages, config) {
 
   var lobby = { keys: { Object: {}, Array: { value: [] }, Function: {} } };
 
+
+  // x f(1, 2)   <-- Denna borde använda send, så att logiken bara är definierad på ett ställe
+  // x slot("f")
+  // x send({ name: "f", arguments: [1, 2] }) <-- denna borde använda slot och sedan även aktiviera resultatet, om möjligt
+
+
   def('Object clone', function() {
     return {
       keys: {
@@ -423,7 +429,57 @@ var interpret = function(messages, config) {
   });
   def('Object send', function(call) {
     var evaledMsg = evalExpression(call.keys.message.keys['arguments'].value[0], call.keys.sender);
-    return evalMessage(call.keys.sender, this, evaledMsg);
+    //return evalMessage(call.keys.sender, this, evaledMsg);
+
+    var slt = get('Object slot');
+
+    var callObject = {
+      keys: {
+        protos: iotaArrayCreate([get('Object')]),
+        callee: slt,
+        target: call.keys.target,
+        sender: call.keys.sender,
+        message: toIotaFormat({
+          type: "symbol",
+          value: "slot",
+          'arguments': [[[{
+            type: "string",
+            value: evaledMsg.keys.value.value,
+            'arguments': [],
+            line: -1,
+            column: -1
+          }]]],
+          line: call.keys.message.keys.line.value,
+          column: call.keys.message.keys.column.value
+        })
+      }
+    };
+
+    var f = slt.value.call(callObject.keys.target, callObject);
+
+    if (f.type == "function") {
+      var co = {
+        keys: {
+          protos: iotaArrayCreate([get('Object')]),
+          callee: f,
+          target: call.keys.target,
+          sender: call.keys.sender,
+          message: {
+            keys: {
+              type: toIotaFormat('symbol'),
+              value: toIotaFormat(evaledMsg.keys.value.value),
+              line: toIotaFormat(-1),
+              column: toIotaFormat(-1),
+              'arguments': evaledMsg.keys.arguments
+            }
+          }
+        }
+      };
+
+      return f.value.call(co.keys.target, co);
+    } else {
+      return f;
+    }
   });
   def('Object slot', function(call) {
     var name = call.keys.message.keys['arguments'].value[0];
