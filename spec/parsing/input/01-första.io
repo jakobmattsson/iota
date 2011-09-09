@@ -5,7 +5,10 @@ f(1, 2 cat(3),
   z for zorro
 )
 
-# Test escaping of strings
+# A single number used to cause problems
+1
+
+# Testing a comment
 
 
 

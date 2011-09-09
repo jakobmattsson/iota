@@ -6,32 +6,32 @@
 # All of this is work in progress! Run at your own risk.
 
 
-slot("true", func(slot("true") clone))
-slot("false", func(slot("false") clone))
-slot("nil", func(slot("nil") clone))
+f = function(a, b, c, d,
+  body
+  ...
+)
 
-slot("while", func(
-  slot("predicate", call message arguments at(0))
-  slot("expression", call message arguments at(1))
-  if(call sender send(predicate),
-    call sender send(expression)
-    while(predicate, expression),
-    nil
+f(1+1, 2, 3, 4)
+
+
+slot("function", func(
+
+  var expectedArgCount = call message arguments length - 1
+  var args = call message arguments skipEnd(1) map(x -> x name)
+  // gör en kontroll att alla "args" är enskilda symboler. inget mer komplicerat. funkar utan det så länge
+
+  block(
+
+
+  )
+
+  # returnera en ny funktion som evaluerar sina argument
+  func(
+    if (call message arguments != expectedArgCount, FAIL)
+    sender = call sender
+    evaledArguments = call message arguments map(x -> sender evaluate(x))
+
+    // exekvera body-koden här
+
   )
 ))
-
-Object slot("clone", func(
-  slot("x", new)
-  x slot("protos", self)
-  if(self slot("missing"),
-    x slot("missing", self slot("missing"))
-  )
-  x
-))
-
-Object   slot("protos", Array clone)
-Number   slot("protos", Array clone push(Object))
-String   slot("protos", Array clone push(Object))
-Array    slot("protos", Array clone push(Object))
-Function slot("protos", Array clone push(Object))
-Message  slot("protos", Array clone push(Object))
