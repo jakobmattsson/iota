@@ -191,28 +191,42 @@ var interpret = function(messages, config) {
         if (message.keys.type.value == "comment") {
           return target;
         }
+
+
         if (message.keys.type.value == "symbol") {
-          console.log("symbol", message.keys.value.value);
+          //console.log("IS SYMBOL")
+          //console.log("symbol", message.keys.value.value);
+        }
+        if (message.keys.type.value == "message") {
+          //console.log("IS MESSAGE!");
+        }
+        if (typeof message.cache != "undefined") {
+          //console.log("cached message")
         }
 
 
 
-
         // hitta slotten "send"
-        var f = findMethod("send", target);
-
+        var f = findMethod("send", target, message.keys.line.value, message.keys.column.value);
         
-        console.log("do activate")
-        return activateIotaField(f, target, context, {
+        //console.log("found it")
+
+        //console.log(message);
+        
+        // console.log("do activate")
+        var res = activateIotaField(f, target, context, {
           keys: {
             type: toIotaFormat('symbol'),
-            value: toIotaFormat("send"),
-            line: toIotaFormat(-1),
-            column: toIotaFormat(-1),
+            value: toIotaFormat('send'),
+            line: toIotaFormat(message.keys.line.value),
+            column: toIotaFormat(message.keys.column.value),
             //'arguments': message,
             'arguments': iotaArrayCreate([iotaArrayCreate([iotaArrayCreate([message])])]),
           }
         });
+        //console.log("evaluated it", res)
+        
+        return res;
         
         
         
@@ -296,12 +310,15 @@ var interpret = function(messages, config) {
     } else {
       var result = null;
       if (typeof lookupObject.keys.protos === "undefined") {
+        //console.log(lookupObject)
         throw 'No response to message "' + msg.keys.value.value + '" at line ' + msg.keys.line.value + ', column ' + msg.keys.column.value;
       } else if (lookupObject.keys.protos.type == "array") {
         var matchedAny = traverse(lookupObject.keys.protos.value, msg.keys.value.value, function(item) {
           result = invoke(item.keys[msg.keys.value.value]);
         });
         if (!matchedAny) {
+          //console.log(lookupObject)
+          //console.log("no matches for", msg.keys.value.value)
           throw "No matches!";
         }
       } else {
@@ -463,12 +480,11 @@ var interpret = function(messages, config) {
 
   var lobby = { keys: { Object: {}, Array: { value: [] }, Function: {} } };
 
-
-  // x f(1, 2)   <-- Denna borde använda send, så att logiken bara är definierad på ett ställe
-  // x slot("f")
-  // x send({ name: "f", arguments: [1, 2] }) <-- denna använder slot och sedan aktivierar resultatet, om möjligt
-
-  var findMethod = function(name, target) {
+  var findMethod = function(name, target, line, col) {
+    
+    line = line || -102;
+    col = col || -102;
+    
     
     var slt = get('Object slot');
 
@@ -485,11 +501,11 @@ var interpret = function(messages, config) {
             type: "string",
             value: name,
             'arguments': [],
-            line: -1,
-            column: -1
+            line: line,
+            column: col
           }]]],
-          line: null, // what?
-          column: null, // what?
+          line: -107, // what?
+          column: -107, // what?
         })
       }
     };
@@ -518,6 +534,7 @@ var interpret = function(messages, config) {
 
 
 
+
   def('Object clone', function() {
     return {
       keys: {
@@ -533,64 +550,44 @@ var interpret = function(messages, config) {
     return toIotaFormat(this == evalExpression(call.keys.message.keys['arguments'].value[0], call.keys.sender));
   });
   def('Object send', function(call) {
-    // Denna använder "slot" för att hitta mottagaren av meddelandet
-    // och sedan aktiverar den mottagaren, om det är en funktion
-
-    console.log("send called 1", call.keys.message.keys['arguments'].value[0]);
-    console.log("send called 2", call.keys.message.keys['arguments'].value[0].value[0].value.length);
-
-    var isProcessed = false;
-
-    if (call.keys.message.keys['arguments'].value.length == 1) {
+    if (call.keys.message.direct) {
+      var result = evalExpression(call.keys.message.keys['arguments'].value[0], call.keys.sender);
       
-      if (call.keys.message.keys['arguments'].value[0].value.length == 1) {
-        if (call.keys.message.keys['arguments'].value[0].value[0].value.length == 1) {
-          if (call.keys.message.keys['arguments'].value[0].value[0].value[0].type == "message") {
-            isProcessed = true;
-          }
+      // Detta är riktigt haxxigt. Gör bättre.
+      call.keys.message.keys['arguments'].value[0].value[0].value = []
+      call.keys.message.keys['arguments'].value[0].value[0].value[0] = result;
+    }
+
+    var xa = call.keys.message.keys['arguments'].value[0].value[0].value[0];
+    var nextArgs = xa.keys.arguments;
+    var who = xa.keys.value.value;
+    var f = findMethod(who, call.keys.target, get(call, "message line").value, get(call, "message column").value);
+
+    if (who == "send") {
+      var x = activateIotaField(f, call.keys.target, call.keys.sender, {
+        direct: true,
+        keys: {
+          protos: iotaArrayCreate([get('Message')]),
+          type: toIotaFormat('symbol'),
+          value: toIotaFormat(who),
+          line: toIotaFormat(-103),
+          column: toIotaFormat(-103),
+          'arguments': nextArgs
         }
-      }
-
-    }
-
-
-    if (isProcessed) {
-      // console.log("is processed!");
-      var xa = call.keys.message.keys['arguments'].value[0].value[0].value[0];
-      console.log("guess 1", xa.keys.value.value);
-      console.log("guess 2", xa.keys.arguments);
-
-      var evaledMsg = evalExpression(call.keys.message.keys['arguments'].value[0], call.keys.sender);
-      var nextArgs = evaledMsg.keys.arguments;
-      var who = evaledMsg.keys.value.value;
-
-      console.log("ans 1", who);
-      console.log("ans 2", nextArgs);
+      });
+      return x;
     } else {
-      var evaledMsg = evalExpression(call.keys.message.keys['arguments'].value[0], call.keys.sender);
-
-      var nextArgs = evaledMsg.keys.arguments;
-      var who = evaledMsg.keys.value.value;
+      return activateIotaField(f, call.keys.target, call.keys.sender, {
+        keys: {
+          protos: iotaArrayCreate([get('Message')]),
+          type: toIotaFormat('symbol'),
+          value: toIotaFormat(who),
+          line: toIotaFormat(-104),
+          column: toIotaFormat(-104),
+          'arguments': nextArgs
+        }
+      });
     }
-
-
-
-    console.log("find who", who)
-
-    var f = findMethod(who, call.keys.target);
-
-
-
-    return activateIotaField(f, call.keys.target, call.keys.sender, {
-      keys: {
-        type: toIotaFormat('symbol'),
-        value: toIotaFormat(who),
-        line: toIotaFormat(-1),
-        column: toIotaFormat(-1),
-        'arguments': nextArgs
-      }
-    });
-
   });
   def('Object slot', function(call) {
     var name = call.keys.message.keys['arguments'].value[0];
@@ -610,6 +607,7 @@ var interpret = function(messages, config) {
       var r = evalMessage(call.keys.target, call.keys.target, msg, call.keys.target, true);
       return r;
     } else {
+      //console.log("set slot", slotName)
       var val = evalExpression(value, call.keys.sender);
       this.keys[slotName] = val;
       return this;
@@ -648,14 +646,14 @@ var interpret = function(messages, config) {
     var str = "[ ";
     str += this.value.map(function(x, i) {
 
-      var f = findMethod("tos", x);
+      var f = findMethod("tos", x, get(call, "message line").value, get(call, "message column").value);
       
       var apa = activateIotaField(f, x, call.keys.sender, {
         keys: {
           type: toIotaFormat('symbol'),
           value: toIotaFormat("tos"),
-          line: toIotaFormat(-1),
-          column: toIotaFormat(-1),
+          line: toIotaFormat(-105),
+          column: toIotaFormat(-105),
           'arguments': toIotaFormat([])
         }
       });
@@ -818,14 +816,14 @@ var interpret = function(messages, config) {
     var x = call.keys.message.keys['arguments'].value[0];
     var e = evalExpression(x, call.keys.sender);
 
-    var f = findMethod("tos", e);
+    var f = findMethod("tos", e, get(call, "message line").value, get(call, "message column").value);
 
     var after = activateIotaField(f, e, call.keys.sender, {
       keys: {
         type: toIotaFormat('symbol'),
         value: toIotaFormat("tos"),
-        line: toIotaFormat(-1),
-        column: toIotaFormat(-1),
+        line: toIotaFormat(-106),
+        column: toIotaFormat(-106),
         'arguments': toIotaFormat([])
       }
     })
