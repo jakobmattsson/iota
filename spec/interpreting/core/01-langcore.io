@@ -177,6 +177,7 @@ println(myNum /(otherNum)) #= 5
 println(myNum *(otherNum)) #= 20
 println(myNum <(otherNum)) #= false
 println(myNum >(otherNum)) #= true
+println(myNum /(0)) #= nil
 
 # Try using the functions from Array
 slot("myList", Array clone)

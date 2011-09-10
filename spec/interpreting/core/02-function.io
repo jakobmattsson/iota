@@ -2,6 +2,9 @@ slot("lobby", func(
  call sender
 ))
 
+println(slot("lobby") origin protos at(0) same(Object)) #= true
+println(slot("lobby") origin message protos at(0) same(Message)) #= true
+
 println(slot("lobby") origin message arguments) #= [ [ [ call, sender ] ] ]
 
 slot("lobby2", func(
