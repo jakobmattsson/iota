@@ -193,7 +193,70 @@ task('spec', function() {
     });
   };
 
-  async.series([testParser, testInterpreter, testInterpreterErrors], function(err, results) {
+  var testParserErrors = function(complete) {
+    fs.readdir('spec/parsing/errors', function(err, files) {
+      async.map(files, function(item, callback) {
+        fs.readFile('spec/parsing/errors/' + item, 'utf8', function(err, data) {
+          if (err) {
+            callback(err);
+            return;
+          }
+          callback(err, {
+            filename: item,
+            content: data
+          });
+        });
+      }, function(err, list) {
+        if (err) {
+          complete(err);
+          return;
+        }
+
+        var res = [];
+
+        list.map(function(file) {
+
+          var expected = file.content.split("\n")[0].slice(3);
+          var gotError = false;
+          var err = function(msg) {
+            gotError = true;
+            if (msg != expected) {
+              res.push({
+                name: file.filename,
+                msg: [
+                  "Exception caught, expected:",
+                  "  " + expected,
+                  "Got:",
+                  "  " + msg
+                ].join("\n")
+              });
+            } else {
+              res.push({ name: file.filename, msg: null });
+            }
+          };
+
+          try {
+            var tokens = iota.tokenize(file.content, { error: err });
+            if (!gotError) {
+              iota.parse(tokens, { error: err })
+            }
+          } catch (ex) {
+            res.push({ name: file.filename, msg: "Exception raised: " + ex });
+          }
+
+          if (!gotError) {
+            res.push({ name: file.filename, msg: "Never got an exception" });
+          }
+        });
+
+        complete(null, res);
+      });
+    });
+  };
+
+
+
+  async.series([testParser, testInterpreter, testInterpreterErrors, testParserErrors], function(err, results) {
     var flatResults = _.flatten(results);
 
     var tests = flatResults.reduce(function(acc, item) {

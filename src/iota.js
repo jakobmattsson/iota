@@ -112,7 +112,12 @@ var tokenize = function(data) {
   return tokens;
 };
 
-var parse = function(tokens) {
+var parse = function(tokens, config) {
+
+  config = config || {};
+  config.error = config.error || function(str) {
+    console.log("error:", str);
+  };
 
   var formArguments = function(tokens) {
 
@@ -127,8 +132,7 @@ var parse = function(tokens) {
 
     while (tokens[i].type != "symbol" || tokens[i].lexeme != ")") {
       if (i > tokens.length) {
-        console.log("Unmatched parenthesis");
-        process.exit(0);
+        throw "Unmatched parenthesis";
       }
 
       if (tokens[i].type == "symbol" && tokens[i].lexeme == "\n") {
@@ -164,21 +168,28 @@ var parse = function(tokens) {
     return { 'arguments': args, consumed: i };
   };
 
-  var tks = [];
-  tks.push({ lexeme: "(", type: "symbol", col: -1, row: -1 });
-  tks = tks.concat(tokens);
-  tks.push({ lexeme: ")", type: "symbol", col: -1, row: -1 });
 
-  var result = formArguments(tks);
+  try {
+
+    var tks = [];
+    tks.push({ lexeme: "(", type: "symbol", col: -1, row: -1 });
+    tks = tks.concat(tokens);
+    tks.push({ lexeme: ")", type: "symbol", col: -1, row: -1 });
+
+    var result = formArguments(tks);
   
-  if (result.consumed != tks.length) {
-    var unmatched = tks[result.consumed-1];
-    console.log("Unmatched parenthesis at line " + unmatched.line + ", column " + unmatched.col);
-    process.exit(0);
-  }
-  console.assert(result['arguments'].length == 1);
+    if (result.consumed != tks.length) {
+      var unmatched = tks[result.consumed-1];
+      throw "Unmatched parenthesis at line " + unmatched.line + ", column " + unmatched.col;
+      process.exit(0);
+    }
+    console.assert(result['arguments'].length == 1);
 
-  return result['arguments'][0];
+    return result['arguments'][0];
+  } catch (ex) {
+    config.error(ex);
+    return null;
+  }
 };
 
 var interpret = function(messages, config) {
@@ -221,7 +232,7 @@ var interpret = function(messages, config) {
       return true;
     }
 
-    if (typeof x.keys.protos === "undefined") {
+    if (typeof get(x, 'protos') === "undefined") {
       return false;
     }
     if (get(x, 'protos').type == "array") {
@@ -233,39 +244,37 @@ var interpret = function(messages, config) {
   var findMethod = function(name, target, line, col) {
     var slot = get('Object slot');
     var f = raw(slot);
-    return f({
-      keys: {
-        protos: iotaArrayCreate([get('Object')]),
-        callee: slot,
-        target: target,
-        sender: null, // <<-------------------------------------- what to do here?
-        message: toIotaFormat({
-          type: 'symbol',
-          value: 'slot',
-          'arguments': [[[{
-            type: 'string',
-            value: name,
-            'arguments': [],
-            line: line,
-            column: col
-          }]]],
+    var co = toIotaObject({
+      message: toIotaFormat({
+        type: 'symbol',
+        value: 'slot',
+        'arguments': [[[{
+          type: 'string',
+          value: name,
+          'arguments': [],
           line: line,
           column: col
-        })
-      }
+        }]]],
+        line: line,
+        column: col
+      }),
+      protos: iotaArrayCreate([get('Object')]),
+      callee: slot,
+      target: target,
+      sender: null
     });
+    return f(co);
   };
   var activateIotaField = function(f, target, sender, message) {
     if (f.type == "function") {
-      return f.value({
-        keys: {
-          protos: iotaArrayCreate([get('Object')]),
-          callee: f,
-          target: target,
-          sender: sender,
-          message: message
-        }
-      });
+      var func = raw(f);
+      return func(toIotaObject({
+        protos: iotaArrayCreate([get('Object')]),
+        callee: f,
+        target: target,
+        sender: sender,
+        message: message
+      }));
     } else {
       return f;
     }
@@ -286,6 +295,19 @@ var interpret = function(messages, config) {
     return x;
   };
 
+  var toIotaObject = function(x) {
+    var o = {
+      keys: {
+        protos: iotaArrayCreate([get('Object')])
+      }
+    };
+
+    Object.keys(x).forEach(function(key) {
+      set(o, key, x[key]);
+    });
+
+    return o;
+  };
   var iotaArrayCreate = function(data) {
     var result = {
       type: "array",
@@ -364,8 +386,8 @@ var interpret = function(messages, config) {
     argument.value.forEach(function(a) {
       a.value.forEach(function(x) {
         x.type = "message";
-        x.keys.protos = iotaArrayCreate([get('Message')]);
-        x.keys['arguments'].value.forEach(function(y) {
+        set(x, 'protos', iotaArrayCreate([get('Message')]))
+        raw(x, 'arguments').forEach(function(y) {
           retypeArgument(y);
         });
       });
@@ -400,10 +422,7 @@ var interpret = function(messages, config) {
     }
     
     return prop.split(' ').reduce(function(acc, next) {
-      if (!acc.keys[next]) {
-        acc.keys[next] = {};
-      }
-      return acc.keys[next];
+      return typeof acc == "undefined" ? acc : acc.keys[next];
     }, src);
   };
   var set = function(object, name, value) {
@@ -443,11 +462,9 @@ var interpret = function(messages, config) {
   set(lobby, 'Function', {});
 
   def('Object clone', function(call) {
-    return {
-      keys: {
-        protos: iotaArrayCreate([get(call, 'target')])
-      }
-    };
+    return toIotaObject({
+      protos: iotaArrayCreate([get(call, 'target')])
+    });
   });
   def('Object delete', function(call) {
     var x = raw(evalToString(raw(call, 'message arguments')[0], get(call, 'sender')));
@@ -528,10 +545,10 @@ var interpret = function(messages, config) {
       }
     };
     return function(call) {
-      var name = call.keys.message.keys['arguments'].value[0];
-      var value = call.keys.message.keys['arguments'].value[1];
-      var len = call.keys.message.keys['arguments'].value.length;
-      var slotName = evalToString(name, call.keys.sender).value;
+      var name = raw(call, 'message arguments')[0];
+      var value = raw(call, 'message arguments')[1];
+      var len = raw(call, 'message arguments').length;
+      var slotName = raw(evalToString(name, get(call, 'sender')));
 
       if (len == 1) {
         var nameMsg1 = name.value[0].value[0].keys;
@@ -542,20 +559,19 @@ var interpret = function(messages, config) {
           value: slotName,
           type: 'symbol'
         });
-        var r = evalMessage(call.keys.target, call.keys.target, msg, call.keys.target);
-        return r;
+        return evalMessage(get(call, 'sender'), get(call, 'target'), msg);
       } else {
-        var val = evalExpression(value, call.keys.sender);
-        call.keys.target.keys[slotName] = val;
-        return call.keys.target;
+        var val = evalExpression(value, get(call, 'sender'));
+        set(get(call, 'target'), slotName, val);
+        return get(call, 'target');
       }
     };
   }));
   def('Object slots', function(call) {
-    return toIotaFormat(Object.keys(call.keys.target.keys).sort(caseInsensitiveSortFunc));
+    return toIotaFormat(Object.keys(get(call, 'target').keys).sort(caseInsensitiveSortFunc));
   });
   def('Object tos', function(call) {
-    return toIotaFormat("{ " + Object.keys(call.keys.target.keys).sort(caseInsensitiveSortFunc).join(", ") + " }");
+    return toIotaFormat("{ " + Object.keys(get(call, 'target').keys).sort(caseInsensitiveSortFunc).join(", ") + " }");
   });
 
   def('Array protos', iotaArrayCreate([get("Object")]));
@@ -569,9 +585,7 @@ var interpret = function(messages, config) {
     };
     return result;
   });
-  def('Array length', function(call) {
-    return toIotaFormat(raw(call, 'target').length);
-  });
+  def('Array length', function(call) { return toIotaFormat(raw(call, 'target').length); });
   def('Array push', function(call) {
     raw(call, 'target').push(evalExpression(raw(call, 'message arguments')[0], get(call, 'sender')));
     return get(call, 'target');
