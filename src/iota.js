@@ -26,10 +26,15 @@ var run = function(f) {
   return f();
 };
 
-var tokenize = function(data) {
+var tokenize = function(data, config) {
   if (data === null) {
     throw "The argument to tokenzie must be a non-null string";
   }
+
+  config = config || {};
+  config.error = config.error || function(str) {
+    console.log("error:", str);
+  };
 
   var charCode = function(x) {
     return x.charCodeAt(0);
@@ -40,76 +45,78 @@ var tokenize = function(data) {
   var exopSymbols = [',', '(', ')'];
   var stringSymbols = ['"', "'"];
 
-  var tokens = [];
+  try {
+    var tokens = [];
+    lines.forEach(function(line, lineNum) {
+      var i = 0;
 
-  lines.forEach(function(line, lineNum) {
-    var i = 0;
-
-    while (i < line.length) {
-      if (exopSymbols.indexOf(line[i]) != -1) {
-        tokens.push({ lexeme: line[i], type: 'symbol', line: lineNum+1, col: (i+1) });
-        i++;
-      } else if (charCode(line[i]) == 32) {
-        i++;
-      } else if (48 <= charCode(line[i]) && charCode(line[i]) <= 57) {
-        var num = "";
-        var col = i + 1;
-        while (i < line.length && 48 <= charCode(line[i]) && charCode(line[i]) <= 57) {
-          num += line[i];
+      while (i < line.length) {
+        if (exopSymbols.indexOf(line[i]) != -1) {
+          tokens.push({ lexeme: line[i], type: 'symbol', line: lineNum+1, col: (i+1) });
           i++;
-        }
-        tokens.push({ lexeme: num, type: 'number', line: lineNum+1, col: col });
-      } else if (stringSymbols.indexOf(line[i]) != -1) {
-        var str = "";
-        var escape = false;
-        var colStart = i+1;
-        var delimiter = line[i];
+        } else if (charCode(line[i]) == 32) {
+          i++;
+        } else if (48 <= charCode(line[i]) && charCode(line[i]) <= 57) {
+          var num = "";
+          var col = i + 1;
+          while (i < line.length && 48 <= charCode(line[i]) && charCode(line[i]) <= 57) {
+            num += line[i];
+            i++;
+          }
+          tokens.push({ lexeme: num, type: 'number', line: lineNum+1, col: col });
+        } else if (stringSymbols.indexOf(line[i]) != -1) {
+          var str = "";
+          var escape = false;
+          var colStart = i+1;
+          var delimiter = line[i];
 
-        i++;
+          i++;
 
-        while (line[i] != delimiter || escape) {
-          if (!escape) {
-            escape = line[i] == '\\';
+          while (line[i] != delimiter || escape) {
             if (!escape) {
-              str += line[i];
-            }
-          } else {
-            if (line[i] == '\\') {
-              str += "\\";
-            } else if (line[i] == 't') {
-              str += "\t";
-            } else if (stringSymbols.indexOf(line[i]) != -1) {
-              str += "\\" + line[i];
+              escape = line[i] == '\\';
+              if (!escape) {
+                str += line[i];
+              }
             } else {
-              console.log("Invalid escape sequence: ", line[i]);
-              process.exit(0);
+              if (line[i] == '\\') {
+                str += "\\";
+              } else if (line[i] == 't') {
+                str += "\t";
+              } else if (stringSymbols.indexOf(line[i]) != -1) {
+                str += "\\" + line[i];
+              } else {
+                throw "Invalid escape sequence: " + line[i];
+              }
+              escape = false;
             }
-            escape = false;
+            i++;
+            if (i > line.length) {
+              throw "Unterminated string literal: " + line;
+            }
           }
           i++;
-          if (i > line.length) {
-            console.log("Unterminated string literal", line);
-            process.exit(0);
+          tokens.push({ lexeme: str, type: 'string', line: lineNum+1, col: colStart });
+        } else if (comments.indexOf(line[i]) != -1) {
+          tokens.push({ lexeme: line.substring(i+1), type: 'comment', line: lineNum+1, col: (i+1) });
+          break;
+        } else {
+          var sym = "";
+          var currentCol = i + 1;
+          while (i < line.length && exopSymbols.indexOf(line[i]) == -1 && charCode(line[i]) != 32 && comments.indexOf(line[i]) == -1) {
+            sym += line[i];
+            i++;
           }
+          tokens.push({ lexeme: sym, type: 'symbol', line: lineNum+1, col: currentCol });
         }
-        i++;
-        tokens.push({ lexeme: str, type: 'string', line: lineNum+1, col: colStart });
-      } else if (comments.indexOf(line[i]) != -1) {
-        tokens.push({ lexeme: line.substring(i+1), type: 'comment', line: lineNum+1, col: (i+1) });
-        break;
-      } else {
-        var sym = "";
-        var currentCol = i + 1;
-        while (i < line.length && exopSymbols.indexOf(line[i]) == -1 && charCode(line[i]) != 32 && comments.indexOf(line[i]) == -1) {
-          sym += line[i];
-          i++;
-        }
-        tokens.push({ lexeme: sym, type: 'symbol', line: lineNum+1, col: currentCol });
       }
-    }
-    tokens.push({ lexeme: '\n', type: 'symbol', line: lineNum+1, col: line.length });
-  });
-  return tokens;
+      tokens.push({ lexeme: '\n', type: 'symbol', line: lineNum+1, col: line.length });
+    });
+    return tokens;
+  } catch (ex) {
+    config.error(ex);
+  }
+  return null;
 };
 
 var parse = function(tokens, config) {
@@ -168,7 +175,6 @@ var parse = function(tokens, config) {
     return { 'arguments': args, consumed: i };
   };
 
-
   try {
 
     var tks = [];
@@ -183,8 +189,6 @@ var parse = function(tokens, config) {
       throw "Unmatched parenthesis at line " + unmatched.line + ", column " + unmatched.col;
       process.exit(0);
     }
-    console.assert(result['arguments'].length == 1);
-
     return result['arguments'][0];
   } catch (ex) {
     config.error(ex);
@@ -221,7 +225,7 @@ var interpret = function(messages, config) {
           line: raw(message, 'line'),
           column: raw(message, 'column')
         });
-        set(xx, 'arguments', iotaArrayCreate([iotaArrayCreate([iotaArrayCreate([message])])]));
+        set(xx, 'arguments', iotaArrayCreate(iotaArrayCreate(iotaArrayCreate(message))));
 
         return activateIotaField(f, target, context, xx);
       }, context);
@@ -258,7 +262,7 @@ var interpret = function(messages, config) {
         line: line,
         column: col
       }),
-      protos: iotaArrayCreate([get('Object')]),
+      protos: iotaArrayCreate(get('Object')),
       callee: slot,
       target: target,
       sender: null
@@ -269,7 +273,7 @@ var interpret = function(messages, config) {
     if (f.type == "function") {
       var func = raw(f);
       return func(toIotaObject({
-        protos: iotaArrayCreate([get('Object')]),
+        protos: iotaArrayCreate(get('Object')),
         callee: f,
         target: target,
         sender: sender,
@@ -298,7 +302,7 @@ var interpret = function(messages, config) {
   var toIotaObject = function(x) {
     var o = {
       keys: {
-        protos: iotaArrayCreate([get('Object')])
+        protos: iotaArrayCreate(get('Object'))
       }
     };
 
@@ -311,7 +315,7 @@ var interpret = function(messages, config) {
   var iotaArrayCreate = function(data) {
     var result = {
       type: "array",
-      value: data,
+      value: isArray(data) ? data : Array.prototype.slice.call(arguments, 0),
       keys: {
         protos: get('Array')
       }
@@ -325,7 +329,7 @@ var interpret = function(messages, config) {
       if (x === null) {
         return {
           keys: {
-            protos: iotaArrayCreate([get('Nil')])
+            protos: iotaArrayCreate(get('Nil'))
           }
         };
       }
@@ -334,7 +338,7 @@ var interpret = function(messages, config) {
           type: "string",
           value: x,
           keys: {
-            protos: iotaArrayCreate([get('String')])
+            protos: iotaArrayCreate(get('String'))
           }
         };
       }
@@ -343,7 +347,7 @@ var interpret = function(messages, config) {
           type: "number",
           value: x,
           keys: {
-            protos: iotaArrayCreate([get('Number')])
+            protos: iotaArrayCreate(get('Number'))
           }
         };
       }
@@ -351,7 +355,7 @@ var interpret = function(messages, config) {
         return {
           type: "bool",
           keys: {
-            protos: iotaArrayCreate([get(x ? 'True' : 'False')])
+            protos: iotaArrayCreate(get(x ? 'True' : 'False'))
           }
         };
       }
@@ -360,7 +364,7 @@ var interpret = function(messages, config) {
           type: "function",
           value: x,
           keys: {
-            protos: iotaArrayCreate([get("Function")])
+            protos: iotaArrayCreate(get("Function"))
           }
         };
       }
@@ -370,7 +374,7 @@ var interpret = function(messages, config) {
 
       var o = {
         keys: {
-          protos: iotaArrayCreate([get('Object')])
+          protos: iotaArrayCreate(get('Object'))
         }
       };
 
@@ -386,7 +390,7 @@ var interpret = function(messages, config) {
     argument.value.forEach(function(a) {
       a.value.forEach(function(x) {
         x.type = "message";
-        set(x, 'protos', iotaArrayCreate([get('Message')]))
+        set(x, 'protos', iotaArrayCreate(get('Message')))
         raw(x, 'arguments').forEach(function(y) {
           retypeArgument(y);
         });
@@ -453,9 +457,6 @@ var interpret = function(messages, config) {
     };
   };
 
-
-
-
   var lobby = {};
   set(lobby, 'Object', {});
   set(lobby, 'Array', { value: [] });
@@ -463,7 +464,7 @@ var interpret = function(messages, config) {
 
   def('Object clone', function(call) {
     return toIotaObject({
-      protos: iotaArrayCreate([get(call, 'target')])
+      protos: iotaArrayCreate(get(call, 'target'))
     });
   });
   def('Object delete', function(call) {
@@ -490,7 +491,7 @@ var interpret = function(messages, config) {
     return activateIotaField(f, call.keys.target, call.keys.sender, {
       direct: who === "send",
       keys: {
-        protos: iotaArrayCreate([get('Message')]),
+        protos: iotaArrayCreate(get('Message')),
         type: toIotaFormat('symbol'),
         value: toIotaFormat(who),
         line: toIotaFormat(-103),
@@ -574,13 +575,13 @@ var interpret = function(messages, config) {
     return toIotaFormat("{ " + Object.keys(get(call, 'target').keys).sort(caseInsensitiveSortFunc).join(", ") + " }");
   });
 
-  def('Array protos', iotaArrayCreate([get("Object")]));
+  def('Array protos', iotaArrayCreate(get("Object")));
   def('Array clone', function(call) {
     var result = {
       type: "array",
       value: [],
       keys: {
-        protos: iotaArrayCreate([get(call, 'target')])
+        protos: iotaArrayCreate(get(call, 'target'))
       }
     };
     return result;
@@ -614,7 +615,7 @@ var interpret = function(messages, config) {
     return raw(call, 'target')[i];
   });
 
-  def('Number protos', iotaArrayCreate([get("Object")]));
+  def('Number protos', iotaArrayCreate(get("Object")));
   def('Number +', mathScaffold("Number.+", function(x, y) { return x + y; }));
   def('Number -', mathScaffold("Number.-", function(x, y) { return x - y; }));
   def('Number *', mathScaffold("Number.*", function(x, y) { return x * y; }));
@@ -624,21 +625,26 @@ var interpret = function(messages, config) {
   def('Number tos', function(call) { return toIotaFormat(get(call, 'target') == get('Number') ? "Number" : raw(call, 'target')); });
 
   def('Function tos', function() { return toIotaFormat("FUNCTION"); });
-  def('Function protos', iotaArrayCreate([get("Object")]));
+  def('Function protos', iotaArrayCreate(get("Object")));
 
-  def('Nil protos', iotaArrayCreate([get("Object")]));
+  def('Nil protos', iotaArrayCreate(get("Object")));
   def('Nil tos', function() { return toIotaFormat("nil"); });
 
-  def('True protos', iotaArrayCreate([get("Object")]));
+  def('True protos', iotaArrayCreate(get("Object")));
   def('True tos', function() { return toIotaFormat("true"); });
 
-  def('False protos', iotaArrayCreate([get("Object")]));
+  def('False protos', iotaArrayCreate(get("Object")));
   def('False tos', function() { return toIotaFormat("false"); });
 
-  def('String protos', iotaArrayCreate([get("Object")]));
+  def('String protos', iotaArrayCreate(get("Object")));
   def('String parse', function(call) {
     try {
-      var msgs = toIotaFormat(parse(tokenize(raw(call, 'target'))));
+      var cfg = {
+        error: function() {
+          // not doing anything at the moment..
+        }
+      };
+      var msgs = toIotaFormat(parse(tokenize(raw(call, 'target'), cfg), cfg));
       retypeArgument(msgs);
       return msgs;
     } catch (ex) {
@@ -653,7 +659,7 @@ var interpret = function(messages, config) {
   });
   def('String tos', function(call) { return toIotaFormat(raw(call, 'target')); });
 
-  def('Message protos', iotaArrayCreate([get("Object")]));
+  def('Message protos', iotaArrayCreate(get("Object")));
   def('Message tos', function(call) {
     var msgToStr = function(msg) {
       var str = raw(msg, 'value');
@@ -704,10 +710,10 @@ var interpret = function(messages, config) {
       return evalExpression(raw(call, 'callee origin message arguments')[0], {
         type: "locals",
         keys: {
-          protos: iotaArrayCreate([
+          protos: iotaArrayCreate(
             get(call, 'target'),
             get(call, 'callee origin sender')
-          ]),
+          ),
           call: call
         }
       });
@@ -727,13 +733,14 @@ var interpret = function(messages, config) {
     var line = x.value.map(function(e) { return e.value; })[0][0].keys.line.value;
     config.println(after.value, line);
   });
-  def('protos', iotaArrayCreate([get("Object")]));
+  def('protos', iotaArrayCreate(get("Object")));
 
   config = config || {};
   config.println = config.println || function(str) {
     console.log(str);
   };
   config.error = config.error || function(str) {
+    console.log(messages);
     console.log("error:", str);
     throw str;
   };
@@ -747,8 +754,15 @@ var interpret = function(messages, config) {
   }
 };
 
+var execute = function(code, config) {
+  var tokens = tokenize(code, config);
+  var messages = parse(tokens, config);
+  return interpret(messages, config)
+};
+
 if (exports) {
   exports.tokenize = tokenize;
   exports.parse = parse;
   exports.interpret = interpret;
+  exports.execute = execute;
 }
