@@ -171,6 +171,26 @@ var iota = (function() {
       };
 
       try {
+
+        var groups = [];
+        var next = [];
+        var parens = 0;
+
+        tokens.forEach(function(token) {
+          next.push(token);
+
+          if (token.lexeme == "(") {
+            parens++;
+          }
+          if (token.lexeme == ")") {
+            parens--;
+          }
+          if (parens == 0 && token.lexeme == "\n") {
+            groups.push(next);
+            next = [];
+          }
+        });
+
         var tks = [];
         tks.push({ lexeme: "(", type: "symbol", col: -1, row: -1 });
         tks = tks.concat(tokens);
