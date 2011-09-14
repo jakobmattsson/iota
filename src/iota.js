@@ -1,11 +1,9 @@
 var iota = (function() {
-
   var isArray = function(x) {
-    if (Array.isArray) {
-      return Array.isArray(x);
-    } else {
-      return Object.prototype.toString.call(x) === '[object Array]';
-    }
+    return Array.isArray ? Array.isArray(x) : Object.prototype.toString.call(x) === '[object Array]';
+  };
+  var charCode = function(x) {
+    return x.charCodeAt(0);
   };
   var stringToCharCodes = function(str) {
     var codes = [];
@@ -30,25 +28,21 @@ var iota = (function() {
 
   var iota = {
     tokenize: function(data, config) {
-      if (data === null) {
-        throw "The argument to tokenzie must be a non-null string";
-      }
-
       config = config || {};
       config.error = config.error || function(str) {
         console.log("error:", str);
       };
 
-      var charCode = function(x) {
-        return x.charCodeAt(0);
-      };
-
-      var lines = data.split('\n');
-      var comments = ['#'];
-      var exopSymbols = [',', '(', ')'];
-      var stringSymbols = ['"', "'"];
-
       try {
+        if (data === null) {
+          throw "The argument to tokenzie must be a non-null string";
+        }
+
+        var lines = data.split('\n');
+        var comments = ['#'];
+        var exopSymbols = [',', '(', ')'];
+        var stringSymbols = ['"', "'"];
+
         var tokens = [];
         lines.forEach(function(line, lineNum) {
           var i = 0;
@@ -122,7 +116,6 @@ var iota = (function() {
       return null;
     },
     parse: function(tokens, config) {
-
       config = config || {};
       config.error = config.error || function(str) {
         console.log("error:", str);
@@ -178,7 +171,6 @@ var iota = (function() {
       };
 
       try {
-
         var tks = [];
         tks.push({ lexeme: "(", type: "symbol", col: -1, row: -1 });
         tks = tks.concat(tokens);
@@ -189,7 +181,6 @@ var iota = (function() {
         if (result.consumed != tks.length) {
           var unmatched = tks[result.consumed-1];
           throw "Unmatched parenthesis at line " + unmatched.line + ", column " + unmatched.col;
-          process.exit(0);
         }
         return result['arguments'][0];
       } catch (ex) {
@@ -577,6 +568,7 @@ var iota = (function() {
       });
 
       def('Array protos', iotaArrayCreate(get("Object")));
+      def('Array length', function(call) { return toIotaFormat(raw(call, 'target').length); });
       def('Array clone', function(call) {
         var result = {
           type: "array",
@@ -587,7 +579,6 @@ var iota = (function() {
         };
         return result;
       });
-      def('Array length', function(call) { return toIotaFormat(raw(call, 'target').length); });
       def('Array push', function(call) {
         raw(call, 'target').push(evalExpression(raw(call, 'message arguments')[0], get(call, 'sender')));
         return get(call, 'target');
@@ -741,7 +732,6 @@ var iota = (function() {
         console.log(str);
       };
       config.error = config.error || function(str) {
-        console.log(messages);
         console.log("error:", str);
         throw str;
       };
