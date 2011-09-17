@@ -117,6 +117,7 @@ var iota = (function() {
     },
     parse: function(tokens, config) {
       config = config || {};
+      config.callback = config.callback || function() { };
       config.error = config.error || function(str) {
         console.log("error:", str);
       };
@@ -185,30 +186,39 @@ var iota = (function() {
           if (token.lexeme == ")") {
             parens--;
           }
-          if (parens == 0 && token.lexeme == "\n") {
+          if (parens === 0 && token.lexeme == "\n") {
             groups.push(next);
             next = [];
           }
         });
 
-        var tks = [];
-        tks.push({ lexeme: "(", type: "symbol", col: -1, row: -1 });
-        tks = tks.concat(tokens);
-        tks.push({ lexeme: ")", type: "symbol", col: -1, row: -1 });
-
-        var result = formArguments(tks);
-
-        if (result.consumed != tks.length) {
-          var unmatched = tks[result.consumed-1];
-          throw "Unmatched parenthesis at line " + unmatched.line + ", column " + unmatched.col;
+        if (next.length > 0) {
+          groups.push(next);
         }
-        return result['arguments'][0];
+
+        groups.forEach(function(group) {
+          var tks = [];
+          tks.push({ lexeme: "(", type: "symbol", col: -1, row: -1 });
+          tks = tks.concat(group);
+          tks.push({ lexeme: ")", type: "symbol", col: -1, row: -1 });
+
+          var result = formArguments(tks);
+
+          if (result.consumed != tks.length) {
+            var unmatched = tks[result.consumed-1];
+            throw "Unmatched parenthesis at line " + unmatched.line + ", column " + unmatched.col;
+          }
+          
+          
+          
+          
+          config.callback(result['arguments'][0]);
+        });
       } catch (ex) {
         config.error(ex);
-        return null;
       }
     },
-    interpret: function(messages, config) {
+    interpreter: function(config) {
 
       // The following should be isolated to as few places as possible:
       // * protos
@@ -402,7 +412,7 @@ var iota = (function() {
         argument.value.forEach(function(a) {
           a.value.forEach(function(x) {
             x.type = "message";
-            set(x, 'protos', iotaArrayCreate(get('Message')))
+            set(x, 'protos', iotaArrayCreate(get('Message')));
             raw(x, 'arguments').forEach(function(y) {
               retypeArgument(y);
             });
@@ -456,7 +466,7 @@ var iota = (function() {
       var del = function(object, prop) {
         delete object.keys[prop];
         return object;
-      }
+      };
 
       var mathScaffold = function(name, callback) {
         return function(call) {
@@ -649,27 +659,38 @@ var iota = (function() {
       def('False tos', function() { return toIotaFormat("false"); });
 
       def('String protos', iotaArrayCreate(get("Object")));
+      def('String tos', function(call) { return toIotaFormat(raw(call, 'target')); });
+      def('String toArray', function(call) { return toIotaFormat(stringToCharCodes(raw(call, 'target'))); });
       def('String parse', function(call) {
         try {
+          var msgs = [];
+          var failed = false;
           var cfg = {
+            callback: function(m) {
+              msgs = msgs.concat(m);
+            },
             error: function() {
-              // not doing anything at the moment..
+              failed = true;
             }
           };
-          var msgs = toIotaFormat(iota.parse(iota.tokenize(raw(call, 'target'), cfg), cfg));
+          iota.parse(iota.tokenize(raw(call, 'target'), cfg), cfg);
+
+          if (failed) {
+            return toIotaFormat(null);
+          }
+
+          msgs = toIotaFormat(msgs);
           retypeArgument(msgs);
           return msgs;
         } catch (ex) {
           return toIotaFormat(null);
         }
       });
-      def('String toArray', function(call) { return toIotaFormat(stringToCharCodes(raw(call, 'target'))); });
       def('String fromArray', function(call) {
         return toIotaFormat(String.fromCharCode.apply(null, raw(evalExpression(raw(call, 'message arguments')[0], get(call, 'sender'))).map(function(e) {
           return raw(e);
         })));
       });
-      def('String tos', function(call) { return toIotaFormat(raw(call, 'target')); });
 
       def('Message protos', iotaArrayCreate(get("Object")));
       def('Message tos', function(call) {
@@ -756,19 +777,26 @@ var iota = (function() {
         throw str;
       };
 
-      try {
-        var m = toIotaFormat(messages);
-        retypeArgument(m);
-        evalExpression(m, lobby);
-      } catch (ex) {
-        config.error(ex);
-      }
+      return function(messages) {
+        try {
+          var m = toIotaFormat(messages);
+          retypeArgument(m);
+          evalExpression(m, lobby);
+        } catch (ex) {
+          config.error(ex);
+        }
+      };
     },
     execute: function(code, config) {
-      var tokens = tokenize(code, config);
-      var messages = parse(tokens, config);
-      return interpret(messages, config)
-    }  
+      var interpreter = iota.interpreter(config);
+      var tokens = iota.tokenize(code, config);
+      iota.parse(tokens, {
+        error: config.error,
+        callback: function(messages) {
+          interpreter(messages);
+        }
+      });
+    }
   };
 
   if (typeof module !== 'undefined' && module.exports) {

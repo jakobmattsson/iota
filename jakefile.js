@@ -35,7 +35,12 @@ task('spec', function() {
         }
         complete(null, list.map(function(item) {
           var tokens = iota.tokenize(item.content);
-          var messages = iota.parse(tokens);
+          var messages = [];
+          iota.parse(tokens, {
+            callback: function(msgs) {
+              messages = messages.concat(msgs);
+            }
+          });
           var specData = eval(item.expected);
           var msgs = eval(JSON.stringify(messages));
 
@@ -81,40 +86,52 @@ task('spec', function() {
         list.forEach(function(file) {
           var errors = 0;
           var tokens = iota.tokenize(file.content);
-          var messages = iota.parse(tokens);
+          var expected = [];
 
-          var expected = messages.map(function(msgLine) {
-            return msgLine.filter(function(msg) {
-              return msg.type == "comment" && msg.value[0] == "=";
-            }).map(function(msg) {
-              return msg.value.slice(1).trim();
-            });
-          }).filter(function(comments) {
-            return comments.length > 0;
-          }).map(function(comments) {
-            return comments[0];
+          var inter = iota.interpreter({
+            println: function(x, line) {
+              var next = expected.shift();
+              if (x != next) {
+                res.push({
+                  name: file.filename + ", line " + line,
+                  msg: ["Expected:", "  " + next, "Got:", "  " + x].join('\n')
+                });
+              } else {
+                res.push({ name: file.filename + ", line " + line, msg: null });
+              }
+            }
+          })
+
+          iota.parse(tokens, {
+            callback: function(messages) {
+              expected = expected.concat(messages.map(function(msgLine) {
+                return msgLine.filter(function(msg) {
+                  return msg.type == "comment" && msg.value[0] == "=";
+                }).map(function(msg) {
+                  return msg.value.slice(1).trim();
+                });
+              }).filter(function(comments) {
+                return comments.length > 0;
+              }).map(function(comments) {
+                return comments[0];
+              }));
+            }
           });
 
-          try {
-            iota.interpret(messages, {
-              println: function(x, line) {
-                var next = expected.shift();
-                if (x != next) {
-                  res.push({
-                    name: file.filename + ", line " + line,
-                    msg: ["Expected:", "  " + next, "Got:", "  " + x].join('\n')
-                  });
-                } else {
-                  res.push({ name: file.filename + ", line " + line, msg: null });
-                }
+          iota.parse(tokens, {
+            callback: function(messages) {
+              try {
+                inter(messages);
+              } catch (ex) {
+                res.push({ name: file.filename, msg: "Exception raised: " + ex });
               }
-            });
-            if (expected.length > 0) {
-              res.push({ name: file.filename, msg: "Never got the following: " + expected.join('\n  ') });
             }
-          } catch (ex) {
-            res.push({ name: file.filename, msg: "Exception raised: " + ex });
+          });
+
+          if (expected.length > 0) {
+            res.push({ name: file.filename, msg: "Never got the following: " + expected.join('\n  ') });
           }
+
         });
 
         complete(null, res);
@@ -145,7 +162,15 @@ task('spec', function() {
 
         list.map(function(file) {
           var tokens = iota.tokenize(file.content);
-          var messages = iota.parse(tokens);
+          var messages = [];
+          
+          
+          iota.parse(tokens, {
+            callback: function(msgs) {
+              messages = messages.concat(msgs);
+            }
+          });
+          
           var gotError = false;
 
           var expected = messages.map(function(msgLine) {
@@ -161,7 +186,7 @@ task('spec', function() {
           }).join("");
 
           try {
-            iota.interpret(messages, {
+            var inter = iota.interpreter({
               error: function(msg) {
                 gotError = true;
                 if (msg != expected) {
@@ -179,6 +204,7 @@ task('spec', function() {
                 }
               }
             });
+            inter(messages);
           } catch (ex) {
             res.push({ name: file.filename, msg: "Exception raised: " + ex });
           }
@@ -254,9 +280,64 @@ task('spec', function() {
     });
   };
 
+  var testOperators = function(complete) {
+    var stringToMessages = function(data) {
+      var tokens = iota.tokenize(data);
+      var messages = [];
+      iota.parse(tokens, {
+        callback: function(msgs) {
+          messages = messages.concat(msgs);
+        }
+      });
+      return messages;
+    };
+    fs.readdir('spec/operators/input', function(err, files) {
+      async.map(files, function(file, callback) {
+        fs.readFile('spec/operators/input/' + file, 'utf-8', function(err, input) {
+          if (err) {
+            callback(err);
+            return;
+          }
+          fs.readFile('spec/operators/output/' + file, 'utf-8', function(err, expected) {
+            if (err) {
+              callback(err)
+              return;
+            }
+            callback(err, {
+              name: file,
+              content: input,
+              expected: expected
+            });
+          });
+        });
+      }, function(err, list) {
+        if (err) {
+          complete(err);
+          return;
+        }
+        complete(null, list.map(function(item) {
+          var exMessages = stringToMessages(item.expected);
+          var outMessages = stringToMessages(item.content);
 
+          if (_.isEqual(exMessages, outMessages)) {
+            return { name: "Parsing operators: " + item.name, msg: null };
+          } else {
+            return { 
+              name: "Parsing operators: " + item.name, 
+              msg: [
+                "Expected:",
+                "  " + JSON.stringify(exMessages),
+                "Got:",
+                "  " + JSON.stringify(outMessages)
+                ].join('\n')
+            };
+          }
+        }));
+      });
+    });
+  };
 
-  async.series([testParser, testInterpreter, testInterpreterErrors, testParserErrors], function(err, results) {
+  async.series([testParser, testInterpreter, testInterpreterErrors, testParserErrors, testOperators], function(err, results) {
     var flatResults = _.flatten(results);
 
     var tests = flatResults.reduce(function(acc, item) {

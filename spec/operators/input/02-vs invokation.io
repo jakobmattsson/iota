@@ -1,0 +1,1 @@
+x g(2) + a + x g(1) when a + b > c
