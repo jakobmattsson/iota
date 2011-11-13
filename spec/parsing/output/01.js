@@ -1,4 +1,3 @@
-// string, number, comment, symbol
 [[{
   "type": "number",
   "value": 123,

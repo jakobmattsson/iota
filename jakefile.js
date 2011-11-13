@@ -37,6 +37,7 @@ task('spec', function() {
           var tokens = iota.tokenize(item.content);
           var messages = [];
           iota.parse(tokens, {
+            disableOperators: true,
             callback: function(msgs) {
               messages = messages.concat(msgs);
             }
@@ -103,6 +104,7 @@ task('spec', function() {
           })
 
           iota.parse(tokens, {
+            disableOperators: true,
             callback: function(messages) {
               expected = expected.concat(messages.map(function(msgLine) {
                 return msgLine.filter(function(msg) {
@@ -119,6 +121,7 @@ task('spec', function() {
           });
 
           iota.parse(tokens, {
+            disableOperators: true,
             callback: function(messages) {
               try {
                 inter(messages);
@@ -166,6 +169,7 @@ task('spec', function() {
           
           
           iota.parse(tokens, {
+            disableOperators: true,
             callback: function(msgs) {
               messages = messages.concat(msgs);
             }
@@ -264,7 +268,10 @@ task('spec', function() {
           try {
             var tokens = iota.tokenize(file.content, { error: err });
             if (!gotError) {
-              iota.parse(tokens, { error: err })
+              iota.parse(tokens, {
+                disableOperators: true,
+                error: err
+              })
             }
           } catch (ex) {
             res.push({ name: file.filename, msg: "Exception raised: " + ex });
@@ -281,10 +288,11 @@ task('spec', function() {
   };
 
   var testOperators = function(complete) {
-    var stringToMessages = function(data) {
+    var stringToMessages = function(data, disableOps) {
       var tokens = iota.tokenize(data);
       var messages = [];
       iota.parse(tokens, {
+        disableOperators: disableOps,
         callback: function(msgs) {
           messages = messages.concat(msgs);
         }
@@ -300,14 +308,25 @@ task('spec', function() {
           }
           fs.readFile('spec/operators/output/' + file, 'utf-8', function(err, expected) {
             if (err) {
-              callback(err)
-              return;
+              fs.readFile('spec/operators/output/' + file.replace(".io", ".js"), 'utf-8', function(err, expected) {
+                if (err) {
+                  callback(err);
+                  return;
+                }
+                callback(err, {
+                  js: true,
+                  name: file.replace(".io", ".js"),
+                  content: input,
+                  expected: expected
+                });
+              });
+            } else {
+              callback(err, {
+                name: file,
+                content: input,
+                expected: expected
+              });
             }
-            callback(err, {
-              name: file,
-              content: input,
-              expected: expected
-            });
           });
         });
       }, function(err, list) {
@@ -316,7 +335,7 @@ task('spec', function() {
           return;
         }
         complete(null, list.map(function(item) {
-          var exMessages = stringToMessages(item.expected);
+          var exMessages = item.js ? JSON.parse(item.expected) : stringToMessages(item.expected, true);
           var outMessages = stringToMessages(item.content);
 
           if (_.isEqual(exMessages, outMessages)) {
