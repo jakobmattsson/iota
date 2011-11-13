@@ -9,7 +9,6 @@ var inspect = function(obj) {
   }
 };
 
-
 var iota = (function() {
   var isArray = function(x) {
     return Array.isArray ? Array.isArray(x) : Object.prototype.toString.call(x) === '[object Array]';
@@ -36,6 +35,11 @@ var iota = (function() {
   };
   var run = function(f) {
     return f();
+  };
+  var mapElements = function(list, callback) {
+    return list.map(function(element) {
+      return element.map(callback);
+    });
   };
 
   var iota = {
@@ -129,6 +133,7 @@ var iota = (function() {
     },
     parse: function(tokens, config) {
       config = config || {};
+      config.disableOperators = !!config.disableOperators;
       config.callback = config.callback || function() { };
       config.error = config.error || function(str) {
         console.log("error:", str);
@@ -220,10 +225,7 @@ var iota = (function() {
             var unmatched = tks[result.consumed-1];
             throw "Unmatched parenthesis at line " + unmatched.line + ", column " + unmatched.col;
           }
-          
-          
-          
-          
+
           config.callback(result['arguments'][0]);
         });
       } catch (ex) {
@@ -678,6 +680,7 @@ var iota = (function() {
           var msgs = [];
           var failed = false;
           var cfg = {
+            disableOperators: true, // dont hardcode this. but what should it be set to?
             callback: function(m) {
               msgs = msgs.concat(m);
             },
@@ -810,6 +813,152 @@ var iota = (function() {
       });
     }
   };
+
+  // Extending the parse-function to support operators
+  (function() {
+    // fixity: infix, prefix, postfix or circumfix.
+    // two operators with the same precedance must have the sme associativity
+    var operators = {
+      '**':   { associativity: 'right',  binds: 'left',  precedance: 5, exclusive: false, fixity: 'infix' },
+      '*':    { associativity: 'left',   binds: 'left',  precedance: 4, exclusive: false, fixity: 'infix' },
+      '/':    { associativity: 'left',   binds: 'left',  precedance: 4, exclusive: false, fixity: 'infix' },
+      '-':    { associativity: 'left',   binds: 'left',  precedance: 3, exclusive: false, fixity: 'infix' },
+      '+':    { associativity: 'left',   binds: 'left',  precedance: 3, exclusive: false, fixity: 'infix' },
+      '>':    { associativity: 'left',   binds: 'left',  precedance: 2, exclusive: false, fixity: 'infix' },
+      '<':    { associativity: 'left',   binds: 'left',  precedance: 2, exclusive: false, fixity: 'infix' },
+      'when': { associativity: 'right',  binds: 'right', precedance: 1, exclusive: false, fixity: 'infix' }
+    };
+
+    var resolveTemp = function(line) {
+      var result = [];
+      line.forEach(function(x) {
+        if (x.type == 'temp') {
+          resolveTemp(x.contents).forEach(function(x) {
+            x['arguments'] = mapElements(x['arguments'], resolveTemp);
+            result.push(x);
+          });
+        } else {
+          x['arguments'] = mapElements(x['arguments'], resolveTemp);
+          result.push(x);
+        }
+      });
+      return result;
+    };
+    var resolveOperatorsLine = function(line) {
+
+      // resolve operators for all arguments to all messages on the line
+      line.filter(function(msg) {
+        return msg['arguments'];
+      }).forEach(function(msg) {
+        msg['arguments'] = mapElements(msg['arguments'], resolveOperatorsLine);
+      });
+
+      // find all operators on this line
+      var ops = line.map(function(l, i) {
+        return {
+          op: l.type == "symbol" && operators[l.value],
+          index: i,
+          name: l.value
+        };
+      }).filter(function(x) { return x.op; });
+
+      // Kolla om det finns några icke-operatorer direkt efter varandra.
+      // I så fall, gruppera ihop dom med en temp-nod och anropa resolveOperatorsLine rekursivt.
+      var newList = [];
+      var startAt = 0;
+      var temped = false;
+
+      ops.forEach(function(op) {
+        if (startAt == op.index)  {
+          newList.push(line[op.index]);
+        } else if (startAt+1 == op.index) {
+          newList.push(line[startAt]);
+          newList.push(line[op.index]);
+        } else {
+          var objs = line.slice(startAt, op.index);
+          newList.push({
+            type: 'temp',
+            contents: objs
+          });
+          newList.push(line[op.index]);
+          temped = true;
+        }
+        startAt = op.index+1;
+      });
+
+      if (startAt + 1 == line.length) {
+        newList.push(line[startAt]);
+      } else if (startAt != line.length){
+        var objs = line.slice(startAt, line.length);
+        newList.push({
+          type: 'temp',
+          contents: objs
+        });
+        temped = true;
+      }
+
+      if (temped) {
+        return resolveOperatorsLine(newList);
+      }
+
+      // sorting the operators
+      var sops = ops.sort(function(a, b) { return operators[a.name].precedance < operators[b.name].precedance;});
+
+      // retain the operators with the highest precedance
+      var retain = sops.reduce(function(acc, e) {
+        if (acc.length > 0) {
+          if (acc[0].op.precedance == e.op.precedance) {
+            return acc.concat([e]);
+          }
+          return acc;
+        } else {
+          return [e];
+        }
+      }, []);
+
+      // stop if there are no operators
+      if (retain.length === 0) {
+        return resolveTemp(line);
+      }
+
+      // test if all the retained operators have the same associativity
+      if (retain.length > 1) {
+        retain.reduce(function(acc, e) {
+          if (acc.op.associativity != e.op.associativity) {
+            throw "The associativity levels do not match";
+          }
+          return e;
+        });
+      }
+
+      // rewrite the messages surrounding the first retained operator into argument-form
+      var r = retain[retain[0].op.associativity == "left" ? 0 : retain.length - 1];
+      var argsOffset = r.op.binds == "left" ? 1 : -1;
+      var contentOffset = r.op.binds == "left" ? -1 : 1;
+
+      line[r.index]['arguments'].push([[line[r.index + argsOffset]]]);
+      line.splice(r.index - 1, 3, {
+        type: 'temp',
+        contents: [line[r.index + contentOffset], line[r.index]]
+      });
+
+      return resolveOperatorsLine(line);
+    };
+    var resolveOperators = function(messages) {
+      return messages.map(resolveOperatorsLine);
+    };
+
+    var oldParse = iota.parse;
+    iota.parse = function(tokens, config) {
+      if (!config.disableOperators) {
+        var oldConfigCallback = config.callback;
+        config.callback = function(result) {
+          return oldConfigCallback.call(config, resolveOperators(result));
+        }
+      }
+      return oldParse(tokens, config);
+    };
+  }());
 
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = iota;
