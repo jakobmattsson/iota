@@ -3,8 +3,56 @@ iota
 
 What is it?
 -----------
+A small but powerful programming language claiming to be the most dynamic one so far.
 
-A small yet very powerful programming language.
+It was inspired by Lisp, JavaScript, Ruby and most notably Io.
+
+It is:
+
+* Prototype-based
+* Object-oriented
+* Lazily evaluated
+* Message centric
+* RPEPL-processed
+
+The reference implementation produces lint-free JavaScript ready
+to run in your browser or any other JavaScript environment.
+
+
+Why is it?
+----------
+Because if you gaze into the abyss the abyss gazes into you.
+
+There are problems for which creating an entire new language is actually
+a reasonable solution. Now, imagine a language powerful enough to put an
+end to that kind of resort and you've understood the goal of iota.
+
+I wanted to see if this could be done and decided to conceive a language where:
+
+  1. Everything was as dynamic as possible.
+  2. The number of primitives was kept to a minimum.
+  3. Performance was not an issue. At all.
+
+
+You want to avoid creating new languages?
+-----------------------------------------
+It's not about stoping development of new languages, quite the opposite! It's about being
+able to solve your problems by shaping iota into what you need it to be, rather than
+having to create something completely new. Most of what you'd have to write a preprocessor
+or compiler for can now be done within iota. In the end there will always be new languages
+and new features, but iota will allow them to be prototyped faster and required less often.
+
+Even though this makes sense on some level, creating a language in order to not have to
+create languages might seem like a strange thing to do. It surely means gazing into the
+abyss of languages-as-a-solution and having abyss gaze back into you. Fortunately, that
+is exactly what we need.  When you begin to know something that is fundamentally different
+from yourself, you take a piece of it with you and it changes you and vice versa.
+
+
+So what can it do?
+------------------
+Mind-blowing example coming soon...
+
 
 Guide
 -----
@@ -38,13 +86,13 @@ The global object is the target for the first message in every program. It conta
 
 **functions**
 
-* **if**: Takes two or three arguments. If the first one evaluates to a truthy value, the the second one is evaluated and its result returned. Otherwise the third one is evaluted and its result returned (if there is a third one). If there is not a third one, Nil clone is invoked and returned.
+* **if**: Takes two or three arguments. If the first one evaluates to a truthy value, then the second one is evaluated and its result returned. Otherwise the third one is evaluted and its result returned (if there is a third one). If there is not a third one, Nil clone is invoked and returned.
 * **while**: Takes two arguments. As long as the first one evaluates to a truthy value, the second one is evaluated. The result of the last evaluation of the second argument is returned when the function terminates. If the first argument never evaluated to a truthy value, Nil clone is invoked and returned.
 * **new**: Creates and returns a new object without any slots whatsoever.
-* **true**: Takes no arguments. When invoked, clones True and returns the result. [Note: should be removed from the core]
-* **false**: Takes no arguments. When invoked, clones False and returns the result. [Note: should be removed from the core]
-* **nil**: Takes no arguments. When invoked, clones Nil and returns the result. [Note: should be removed from the core]
-* **func**: Described later
+* **true**: Takes no arguments. When invoked, clones True and returns the result. (Note: should be removed from the core)
+* **false**: Takes no arguments. When invoked, clones False and returns the result. (Note: should be removed from the core)
+* **nil**: Takes no arguments. When invoked, clones Nil and returns the result. (Note: should be removed from the core)
+* **func**: Takes one argument. Creates a new function using the single argument as body and returns the new function. Read more about creating functions further down.
 * **println**: Takes one argument. Runs *tos* on the argument and then prints it to standard out.
 
 **objects**
@@ -59,7 +107,7 @@ The global object is the target for the first message in every program. It conta
 * **False**: Used as protos for objects representing truth.
 * **Nil**: Used as protos for objects representing nothingness.
 
-It also contains **protos** ... explain ...
+It also contains a property called **protos**. Documentation on that coming up soon...
 
 ### Object
 
@@ -86,23 +134,18 @@ It also contains **protos** ... explain ...
 
 * **fromArray**: Function that creates a string from an array of numbers
 * **parse**:     Function that parses a string to an array of messages.
-* **protos**:
+* **protos**:    An array containing *Object* as it single element.
 * **toArray**:   Function that returns an array of numbers from the string
-* **tos**:
+* **tos**:       Function taking no arguments and returning a copy of the string itself.
 
 ### Array
 
 * **at**:     Function that takes a number as its argument and return the array index at that index, starting from zero. Returns "Nil clone" if the argument is out of range.
-* **clone**:
+* **clone**:  Function that takes no arguments and returns a new object with its protos slot set to the target of the clone invokation.
 * **length**: Function that return the number of items in the array.
-* **protos**:
-* **push**:
-* **tos**:
-
-### Function
-
-* **protos**:
-* **tos**:
+* **protos**: The object *Object*.
+* **push**:   Function that takes a single object as argument. Appends that object to the end of the array.
+* **tos**:    Function taking no arguments and returning a string representing the target array.
 
 ### Message
 
@@ -113,6 +156,13 @@ It also contains **protos** ... explain ...
 * **line**:      Number representing the line of the source file where the message started.
 * **column**:    Number representing the column of the source file where the message started.
 * **file**:      String representing the name of the source file where the message was defined.
+
+### Function
+
+* **protos**: Coming soon...
+* **tos**:    Coming soon...
+
+Also, an in-depth description of how function-creation/invocation works will be here soon...
 
 
 Notes
@@ -125,16 +175,21 @@ Notes
 * All objects that are not falsy are considered truthy
 
 
-ToDo
-----
-1.   Method missing
-2.   Operators
-3.   JavaScript interoperability
-
-Would be awesome if not too hard
---------------------------------
+What the future holds
+---------------------
+* Method missing
 * Tail recursion
 * Exceptions
+* Operators as a library
+* JavaScript interoperability
+
+
+Why is it called iota?
+----------------------
+Because it doesn't force you to an iota.
+
+Also, it hints about the relation to [Io](http://iolanguage.com).
+
 
 License
 -------
