@@ -1,3 +1,15 @@
+// This method should not be here in the actual production code,
+// but it makes life easier when  writing print-statements for debugging purposes
+var inspect = function(obj) {
+  if (typeof module !== 'undefined' && module.exports) {
+    var util = require("util");
+    return util.inspect(obj, false, null);
+  } else {
+    return obj.toString();
+  }
+};
+
+
 var iota = (function() {
   var isArray = function(x) {
     return Array.isArray ? Array.isArray(x) : Object.prototype.toString.call(x) === '[object Array]';
