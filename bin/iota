@@ -1,0 +1,21 @@
+#!/usr/local/bin/node
+
+var fs = require('fs');
+var iota = require('../src/iota');
+
+if (process.argv.length < 3) {
+  console.log("Must provide the filename of the iota-file to execute!");
+  return;
+}
+
+fs.readFile(process.argv[2], 'utf8', function(err, data) {
+  if (err) {
+    if (err.code == "ENOENT") {
+      console.log("Could not find the file '" + process.argv[2] + "'");
+    } else {
+      console.log("Error when reading file: ", err);
+    }
+    return;
+  }
+  iota.execute(data);
+});
