@@ -861,11 +861,12 @@ var iota = (function() {
       // find all operators on this line
       var ops = line.map(function(l, i) {
         return {
+          msg: l,
           op: l.type == "symbol" && operators[l.value],
           index: i,
           name: l.value
         };
-      }).filter(function(x) { return x.op; });
+      }).filter(function(x) { return x.op && x.msg.arguments.length === 0; });
 
       // Kolla om det finns några icke-operatorer direkt efter varandra.
       // I så fall, gruppera ihop dom med en temp-nod och anropa resolveOperatorsLine rekursivt.
