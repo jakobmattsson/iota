@@ -794,6 +794,10 @@ var iota = (function() {
 
       return function(messages) {
         try {
+          if (messages == null) {
+            throw "The argument 'messages' for the interpret-function must be non-null";
+          }
+
           var m = toIotaFormat(messages);
           retypeArgument(m);
           evalExpression(m, lobby);
@@ -803,6 +807,7 @@ var iota = (function() {
       };
     },
     execute: function(code, config) {
+      config = config || {};
       var interpreter = iota.interpreter(config);
       var tokens = iota.tokenize(code, config);
       iota.parse(tokens, {
@@ -950,8 +955,8 @@ var iota = (function() {
 
     var oldParse = iota.parse;
     iota.parse = function(tokens, config) {
-      if (!config.disableOperators) {
-        var oldConfigCallback = config.callback;
+      if (config && !config.disableOperators) {
+        var oldConfigCallback = config.callback || function() {};
         config.callback = function(result) {
           return oldConfigCallback.call(config, resolveOperators(result));
         }
