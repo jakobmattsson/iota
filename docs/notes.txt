@@ -1,0 +1,502 @@
+ a  B  c d e  F  g  H  i
+
+(a) B (c d e) F (g) H (i)
+
+
+
+
+a +(b) >(c) when(g(1) +(a))
+
+
+x g(2) + a + x g(1) when a + b > c
+
+
+
+
+
+
+#= order: left/right
+#= precedance: any int
+#= exclusive: true/false
+#= symbol: any string
+#= unary: left/right
+
+#= leftSymbol: "["
+#= rightSymbol: "]"
+
+# Operators.push({ order: "left", precedance: 1, symbol: "*", exclusive: false })
+# Operators.push({ order: "left", precedance: 1, symbol: "/", exclusive: false })
+# Operators.push({ order: "left", precedance: 2, symbol: "-", exclusive: false })
+# Operators.push({ order: "left", precedance: 2, symbol: "+", exclusive: false })
+# Operators.push({ order: "left", precedance: 3, symbol: "[ ]", exclusive: false })
+
+
+
+
+========================
+   From the reference
+========================
+
+Methods/objects referred to by the above, but not implemented in the core language:
+* toString
+* missing
+* protos
+* call
+
+---------------------------------------------------------------------------------------------------
+
+func:
+
+Varje meddelande ger upphov till att en funktion aktiveras och ett locals objekt skapas åt denna.
+Locals objektet får egenskapen "call" satt till diverse information:
+* call callee - funktionen själv
+* call message - meddelandet som skickades
+* call sender - locals objektet från den anropande kontexten
+* call target - objektet som meddelandet anropades på (objektet till vänster om anropet, "this" i JavaScript)
+Locals objektet får även sin protos satt till [call target, call callee context]
+
+
+
+
+A program is an expression.
+An expression is one or more message chains
+A message chain is one or more messages.
+A message is a name/value and any number of arguments (an argument is an expression).
+
+
+
+
+
+
+=====
+GUIDE
+=====
+The most basic building block is the message.
+Every message has a name, a list of arguments and an origin.
+An argument is a list of messages.
+
+Executing a program is the operation of sending a series of messages.
+A message is always sent to exactly one object.
+An object could be a number, a string, a function or even a message.
+The starting point of any program is the so called "global object".
+
+
+Program 1:
+  x
+The message x is sent to the global object. There are no arguments.
+
+
+Program 2:
+  x(y, z)
+The message x is sent to the global object, along with the two arguments y and z. Note that y and z are messages.
+
+Program 3:
+  x(y, z(a, b))
+The message x is sent to the global object, along with the two arguments y and z(a, b). The first argument, y, is simply a 
+message without arguments. The second argument, z(a, b), is a message with two arguments; a and b
+
+Program 4:
+  x
+  y
+
+
+Terminology
+* Expression
+* Message
+* Object
+* Slot
+
+
+An iota program is the same thing as an expression.
+An expression is a list of messages.
+Every argument is an expression.
+
+
+Everything is an object.
+Every object can have any number of slots.
+Every slot belonging to the same object has a distinct name.
+Every slot is either callable or not.
+A non-callable slot is usually referred to as a value.
+Object interaction is possible through messages.
+Every piece of source code is (or is part of) a message.
+
+There are a number of predefined fundamental objects:
+* False
+* Function
+* Message
+* Nil
+* Number
+* Object
+* String
+* True
+
+There is also an object that can not be referred to directly, and hence does not have a name, but is known as "the global object".
+
+
+All of these, except Object, has a slot
+
+
+A message can be passed to an object.
+If an object has a non-callable slot with the same name as a message that is passed to the object, that slot is returned.
+If an object has a callable-slot with the same name as a message that is passed to the object, that slot is called.
+
+
+====
+CODE
+====
+slot("while", 
+  slot("predicate", call message arguments at(0))
+  slot("expression", call message arguments at(1))
+  if(call sender send(predicate),
+    call sender send(expression)
+    while(predicate, expression),  # detta är ett call/apply-style anrop. Hur ska man göra det?
+    nil
+  )
+)
+
+slot("true", function(
+  slot("true") clone
+))
+
+slot("false", function(
+  slot("false") clone
+))
+
+slot("nil", function(
+  slot("nil") clone
+))
+
+
+Object slot("protos", List clone)   ### Fundera på om det verkligen är ok att skriva "List clone" här
+
+Object slot("clone", function(
+  slot("x", new)
+  x slot("protos", self) ##### self som array istället. hur??? jag kan ju inte använda List clone eftersom det blir en cirkelreferens. Lösningen är nog att implementera en lista med objekten istället. Inte låta list-typen vara fördefinierad helt enkelt.
+  if(self slot("missing"),
+    x slot("missing", self slot("missing"))
+  )
+  x 
+))
+
+Object slot("missing", function(
+  ### Att inte anropa callbacken innebär samma sak som att köra callbacken med "Nil clone".
+  ### Kör man callbacken flera gånger så är det sista anropet som gäller
+
+  slot("msg", call sender send(call message arguments at(0)))
+  slot("callback", call sender send(call message arguments at(1)))
+
+  if (self slot("protos"),
+    ##### Hur testar jag att "protos" är en lista?
+  )
+))
+
+## Som JavaScript. Översätt till ovan.
+missing = function(msg, callback) {
+  if (!self.hasSlot("protos") || typeof self.protos != "List") {
+    callback(Nil clone)
+    return;
+  }
+  self.protos.each(function(proto) {
+    if (proto.hasSlot(msg)) {
+      if (callback) callback(proto.send(msg));
+      return true;
+    } else {
+      result = false;
+      proto.missing(msg, function(result) {
+        if (callback) callback(result);
+        result = true;
+      });
+      return result;
+    }
+  });
+}
+
+
+===================================================================================================
+===================================================================================================
+===================================================================================================
+
+// Låt säga att iteratoriden kom efter jag hade implementerat
+// argumentlistan som en immutable array. hur hade man då
+// gjort för att skapa en iterable/iterator-heirarki?
+// Det måste ju gå att skapa en arkitektur som hade gjort det
+// möjligt, annars blockar jag ju ändå alla framtida idéer.
+
+List:
+
+slot("listmaker", function(
+  slot("len", 0)
+  slot("obj", new)
+  slot("List", new)
+  List slot("at", block(
+    slot("target", call sender)
+    slot("msgs", call message arguments at(0))
+    slot("i", 0)
+
+    while(i <(msgs length),
+      slot("target", target send(msgs at(i)))
+    )
+
+    if(target <(0), nil, if(target >(len -(1)), nil, obj getSlot(target toString)))
+  ))
+  List slot("length", block(
+    len
+  ))
+  List slot("push", block(
+    slot("target", call sender)
+    slot("msgs", call message arguments at(0))
+    slot("i", 0)
+
+    while(i <(msgs length),
+      slot("target", target send(msgs at(i)))
+    )
+
+    obj slot(len toString, target)
+    self slot("len", len +(1))
+  ))
+  List
+));
+listmaker()
+delete "listmaker"
+
+e = myList enumerator
+e.hasNext
+e.next
+
+Number slot("protos", [Object]) ### Skapa en lista på riktigt här
+
+
+=====
+KLADD
+=====
+
+x = 5;
+f = method(
+  call sender x
+  c = call
+  print(c sender x)
+  
+  arg1 * arg2
+)
+
+f(10, 20) twice()
+
+Object.prototype.__resolve__ = function(call) {
+  var slot = this[call.message.name];
+  if (typeof slot === "function") {
+    call.target = this;
+    call.slotContext = ... var hittade man slotten?
+    call.activated = slot;
+    return slot(call);
+  } else {
+    return slot;
+  }
+}
+
+Object slot("clone", function(
+  slot("a", new)
+  a slot("protos", self) // self som array istället
+  if(self getSlot("missing"),
+    a slot("missing", self getSlot("missing"))
+  )
+  a 
+))
+
+// The global "locals" (also know as the lobby)
+// If it already exists (from another file), don't create a new one
+// Note that there is no call-slot for this locals object
+locals = locals || { };
+self = ... is there a global self? isnt this the lobby?
+
+// "Missing" returnerar en flagga som säger om den har hittat resultatet eller ej
+// samt ett värde. Om man hittat resultatet så är värdet = resultatet.
+// Om man inte hittat resultatet så är värdet en funktion som man önskar
+// köra om man inte hittar värdet i någon protos-sibling heller. Om man inte hittat
+// resultatet och värdet inte är en funktion, då betyder det att det inte finns
+// något önskemål om vad som ska köras
+
+locals.x = 5;
+locals.f = function(call) {
+  call.target = this;
+  call.activated = arguments.callee;
+  var locals = {
+    call: call,
+    protos: [self], // samma som "self" nedan
+    missing: function() { ... kör "vanlig" lookup i protos-objektet }
+    self: .... sätt denna baserat på om det är funktion eller block ...
+  };
+
+  locals.__resolve__(locals, 'call', 35, 4).__resolve__(locals, 'sender', 38, 4).__resolve__(locals, 'x', 45, 4);
+
+  locals.print({
+
+
+  })
+
+  locals.call.message
+}
+
+window.f({
+  sender: locals,
+  target: window,
+  activated: window.f, // stämmer detta? det är ju evaluerad form, så det "enda" kan använda den till är rekursiva anrop. Eller vad har en funktion för metoder egentligen? Dessutom kanske man kan plocka upp den via arguments.callee istället
+  slotContext: ..........
+  message: { name: 'f', line: 12, col: 1, arguments: [
+    [{ literal: 10, line: 12, col: 3 }],
+    [{ literal: 20, line: 12, col: 7 }]
+  ]}
+}).twice({
+  sender: locals,
+  target: ..... kan plockas upp med "this" inne i funktionen
+  activated: .... kan plockas upp med "arguments.callee" inne i funktionen
+  slotContext: ....... ??????,
+  message: { name: 'twice', line: 35, col: 4, arguments: [] }
+})
+
+Att skapa "protos-function" från vanlig function:
+
+function = (function() {
+  oldFunction = function;
+  
+  return function(args) {
+    f = function(args)
+    f.protos.push(Function)
+    return f;
+  }
+}())
+
+==========
+MORE NOTES
+==========
+Skickar man ett meddelande som är en kommentar så evaluerar det till self
+
+"parse" gör om en sträng till ett antal meddelanden. vissa av dessa meddelanden kommer att vara numbers. Dessa får sina "value" satta till number-object. Hur hände detta sist steg? Vilken rutin skapade ett "number" av den sträng som är tex 123? ska parse vara lite magisk?
+
+
+
+=====
+NOTES
+=====
+# det vore ju fantastiskt om man kunde göra så att "nil.something" fick en betydelseful mening (inte exception som i andra språk)
+
+# Hur vet man om en aktiverbar slot ska aktiveras eller ej när den skyfflas runt?
+
+# Testa semikolon vs newline
+# Testa vanliga kolons (hur? kan ju bara testa att det är fel)
+
+# Testa så att två instanser av nil inte är samma.
+# Testa så att om man skapar ett slot på den ena så skapas det inte på den andra, men om man gör det på Nil så sker det
+
+# När man skapar en operator så ska man kunna säga om den får existera inuti en identifierare eller ej
+# Ett exempel på en som inte får är "", eftersom de måste kunna skrivas direkt bredvid en sträng, utan mellanslag
+# Vill man kan man förstås definiera matematiska operatorer på det sättet också. Begränsar antalet identifierare, men gör att man inte måste skriva mellanslag
+
+while = function(cond, stm,
+  if(eval cond,
+    eval stm
+    while(cond, stm)
+  )
+)
+
+x missing = function(msg,
+  st = Stack clone
+  st pushAll (self protos reverse)
+  result = nil
+
+  while(st notEmpty,
+    next = st pop()
+    slt = next slot(msg name)
+    if(slt,
+      returnFromMissing slt activateWithArguments(msg arguments, target),
+      st pushAll (next protos reverse)
+    )
+  )
+  throw "target does not response to the message"
+)
+
+nil missing = function(self)
+
+nil   chainNil reverse toUpperCase stopChaining
+"hej" chainNil reverse toUpperCase
+
+
+============
+THE LANGUAGE
+============
+Varje meddelande har:
+* Ett namn, bestående av vilka tecken som helst utom 
+  - whitespace
+  - vanliga parenteser
+  - komma
+  - sträng- eller kommentar-delimiters
+* En lista med argument (varje argument är ett expression, eller null. ett expression är en lista med meddelanden)
+* Fil, rad och kolumn som meddelandet skapades i (om det är dynamiskt skapat så har dessa inga värden)
+
+Om namnet börjar med en siffra så är det en Number-literal
+Om namnet börjar med en sträng-delimiter så är det en sträng-literal
+Om namnet börjar med en kommentar-symbol så är det en kommentar
+Om namnet är semikolon så är det en linebreak (i källkoden resulterar både semikolon och newline i detta namn)
+
+
+Varje meddelande ger upphov till att en funktion aktiveras och ett locals objekt skapas åt denna.
+Locals objektet får egenskapen "call" satt till diverse information:
+* call callee - funktionen själv
+* call message - meddelandet som skickades
+* call sender - locals objektet från den anropande kontexten
+* call target - objektet som meddelandet anropades på (objektet till vänster om anropet, "this" i JavaScript)
+
+locals.protos = [call.target] # "method" i IO
+locals.protos = [call.target, call.callee.context] # metoder C++, C#, Java mfl
+locals.protos = [call.callee.context] # "function" i JavaScript eller "block" i IO
+
+var x = 1;
+
+function() {
+  var x = 2;
+
+  var f = function() {
+    var y = x;
+  };
+
+  Object.f = f;
+  Object.x = 3;
+}();
+
+function() {
+  var o = Cat.clone;
+  var x = 4; // aldrig denna. vill man åt den så skriver man "call sender x". alldeles för farligt att exponera automatiskt.
+  o.x = 5;
+  o.f();
+}();
+
+
+
+name som INTE är definierade i kärnan:
+* Lobby (den är ju locals-objektet på toppnivå; trivialt att definiera själv)
+
+
+metoder för att:
+* stringToExpression eller "parse" (strängen blir en lista med meddelanden)
+* doMessage (doString == do(stringToExpression(str)), och "do" är doMessage upprepat över alla messages i uttrycket, och doFile/doUrl är abstraktioner av doString). 
+* method och block (skapar funktioner)
+
+
+current = function(call sender)
+foreach msg in "a b(1,2,3) c d(e)" parse:
+  current = current send(msg)
+
+
+måste lyckas implementera en lista på egen hand, utan att använda sig av någon fördefinierad
+
+
+Saker som kräver ett OS:
+* Skriva/läsa filer och sockets
+* Timers och threading (eller alternativ till det)
+* Random access memory
+
+
+Tal, strängar och funktioner är inte "bara" objekt, de för med sig ett slags metavärde. Men hur kommer man åt detta metavärde?
+* Tal: det gör man inte. matematiska operationer och jämförelser är sättet som man manipulerar och läser av metavärdet
+* Strängar: det finns en funktion som konverterar en position i strängen till sitt unicode tal. Man måste kunna skapa en sträng programatiskt. Hur?
+* Funktioner: hur??
+

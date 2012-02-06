@@ -1,0 +1,19 @@
+* Wrap up the first iteration of the operators:
+  - Operator tests mixing explicit and implicit parenthesis.
+  - Operators with all kinds of fixity (square brackets, negation and post-increment should do)
+  - Operators with/without exclusivity
+
+* Test everything that can go wrong. Expect certain exceptions/error-messages
+
+* Start writing example programs in iota. Not as tests but just as beginners reference, performance testing and fun.
+  - Create /examples/fizzbuzz.io
+  - Create /examples/fibonacci.io
+  - Maybe cheat with having a function for creating non-lazy functions until one has been properly defined.
+
+* Start building a standard library and tests against it
+  - Implement the traditional functional methods for arrays
+  - Write some tests depending on these methods and expect some proper output
+
+* There is a problem with the assignment. If some precedance rules forces one to write "x = (a ... b)" then
+  the evaluation order get reversed as opposed to "x = 1" (which means "1 =(x)"). This is a serious limitation.
+  It's much due to the fact that invoking functions and creating explicit execution orders is done with the same symbol.
