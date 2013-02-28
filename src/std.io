@@ -1,6 +1,6 @@
 # This file contains concepts referenced to by the compiler itself.
 # It also contains some functions that are absolutely essential.
-# It could be said that this is part of the compiler, but on the other hand it can all be implemented in moldlang itself.
+# It could be said that this is part of the compiler, but on the other hand it can all be implemented in iota itself.
 
 
 # All of this is work in progress! Run at your own risk.

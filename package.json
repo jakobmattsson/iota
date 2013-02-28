@@ -1,0 +1,18 @@
+{
+  "name": "iota.js",
+  "description": "A small but powerful programming language",
+  "version": "0.1.0",
+  "author": "Jakob Mattsson <jakob.mattsson@gmail.com> (jakobmattsson.se)",
+  "main": "./src/iota.js",
+  "bin": {
+    "iota": "./bin/iota"
+  },
+  "scripts": {
+    "test": "jake spec"
+  },
+  "devDependencies": {
+    "jake": "0.5.8",
+    "async": "0.2.5",
+    "underscore": "1.4.4"
+  }
+}
