@@ -389,5 +389,9 @@ task('spec', function() {
     console.log("SUMMARY");
     console.log("======================================================================");
     console.log("OK:", flatResults.length - errors.length, "FAILED:", errors.length);
+
+    if (errors.length > 0) {
+      process.exit(1);
+    }
   });
 });
